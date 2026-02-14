@@ -276,8 +276,11 @@ def calculate_decayed_score(final_score: float, crawled_at: datetime, half_life_
     
     if isinstance(crawled_at, str):
         try:
-            crawled_at = datetime.fromisoformat(crawled_at.replace('Z', '+00:00'))
-        except:
+            # 处理ISO格式日期字符串
+            import re
+            date_str = re.sub(r'Z$', '+00:00', crawled_at)
+            crawled_at = datetime.fromisoformat(date_str)
+        except Exception:
             return final_score
     
     hours_ago = (datetime.utcnow() - crawled_at).total_seconds() / 3600
@@ -464,8 +467,10 @@ def get_time_ago(crawled_at: datetime) -> str:
     
     if isinstance(crawled_at, str):
         try:
-            crawled_at = datetime.fromisoformat(crawled_at.replace('Z', '+00:00'))
-        except:
+            # 处理ISO格式日期字符串
+            date_str = crawled_at.replace('Z', '+00:00') if crawled_at.endswith('Z') else crawled_at
+            crawled_at = datetime.fromisoformat(date_str)
+        except Exception:
             return "未知"
     
     now = datetime.utcnow()
