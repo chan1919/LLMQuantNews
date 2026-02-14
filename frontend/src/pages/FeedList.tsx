@@ -394,10 +394,13 @@ export default function FeedList() {
     navigate(`/news/${newsId}`);
   };
 
+  // 移除初始加载的转圈动画，实现无感刷新
   if (isLoading && items.length === 0) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
+      <Box sx={{ p: 4 }}>
+        <Typography variant="body2" color="text.secondary" align="center">
+          加载中...
+        </Typography>
       </Box>
     );
   }
@@ -513,6 +516,29 @@ export default function FeedList() {
               </Select>
             </FormControl>
 
+            {/* 关键词组选择 */}
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel id="keyword-group-label">关键词组</InputLabel>
+              <Select
+                labelId="keyword-group-label"
+                value=""
+                onChange={(e) => {
+                  const groupName = e.target.value;
+                  if (groupName && predefinedKeywords[groupName]) {
+                    handleAddKeywordGroup(predefinedKeywords[groupName]);
+                  }
+                }}
+                label="关键词组"
+                size="small"
+              >
+                {Object.keys(predefinedKeywords).map((group) => (
+                  <MenuItem key={group} value={group}>
+                    <ListItemText primary={group} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             {/* 评分范围 */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>评分:</Typography>
@@ -555,6 +581,28 @@ export default function FeedList() {
           </Box>
         )}
       </Box>
+
+      {/* 已选关键词（带删除功能） */}
+      {!isSearchMode && filters.keywords && filters.keywords.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+            已选关键词:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {filters.keywords.map((keyword, index) => (
+              <Chip
+                key={index}
+                label={keyword}
+                onDelete={() => handleRemoveKeyword(keyword)}
+                color="primary"
+                variant="filled"
+                size="small"
+                sx={{ bgcolor: '#e3f2fd', color: '#1976d2' }}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {/* AI标签选择（紧凑版） */}
       {!isSearchMode && availableTags.length > 0 && (
