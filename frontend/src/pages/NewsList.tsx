@@ -19,10 +19,46 @@ import {
   MenuItem,
   Button,
   LinearProgress,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import axios from 'axios'
 
 const API_URL = '/api/v1'
+
+// 生成最近7天的日期
+const generateRecentDates = () => {
+  const dates = []
+  const today = new Date()
+  
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    dates.push(date)
+  }
+  
+  return dates
+}
+
+// 格式化日期为 YYYY-MM-DD
+const formatDate = (date: Date) => {
+  return date.toISOString().split('T')[0]
+}
+
+// 格式化日期为显示格式
+const formatDisplayDate = (date: Date) => {
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  
+  if (date.toDateString() === today.toDateString()) {
+    return '今天'
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return '昨天'
+  } else {
+    return `${date.getMonth() + 1}/${date.getDate()}`
+  }
+}
 
 const fetchNews = async (params: any) => {
   const { data } = await axios.get(`${API_URL}/news`, { params })
@@ -36,7 +72,9 @@ export default function NewsList() {
     keyword: '',
     source: '',
     min_score: '',
+    date: '',
   })
+  const [dates] = useState<Date[]>(generateRecentDates())
 
   const { data, isLoading } = useQuery({
     queryKey: ['news', page, rowsPerPage, filters],
@@ -63,6 +101,19 @@ export default function NewsList() {
     return 'default'
   }
 
+  // 处理日期选择
+  const handleDateChange = (event: React.SyntheticEvent, newValue: number) => {
+    const selectedDate = dates[newValue]
+    setFilters({ ...filters, date: formatDate(selectedDate) })
+    setPage(0)
+  }
+
+  // 清除日期过滤
+  const clearDateFilter = () => {
+    setFilters({ ...filters, date: '' })
+    setPage(0)
+  }
+
   if (isLoading) {
     return <LinearProgress />
   }
@@ -72,6 +123,52 @@ export default function NewsList() {
       <Typography variant="h4" sx={{ mb: 2 }}>
         新闻列表
       </Typography>
+
+      {/* 日期过滤条 */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+          按日期过滤:
+        </Typography>
+        <Box sx={{ overflowX: 'auto' }}>
+          <Tabs
+            value={filters.date ? dates.findIndex(date => formatDate(date) === filters.date) : -1}
+            onChange={handleDateChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              '& .MuiTabs-indicator': {
+                backgroundColor: '#667eea',
+              },
+              '& .Mui-selected': {
+                color: '#667eea !important',
+                fontWeight: 'bold',
+              },
+            }}
+          >
+            {dates.map((date, index) => (
+              <Tab 
+                key={index} 
+                label={formatDisplayDate(date)}
+                sx={{
+                  minWidth: '80px',
+                  py: 1,
+                }}
+              />
+            ))}
+          </Tabs>
+        </Box>
+        {filters.date && (
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={clearDateFilter}
+            sx={{ mt: 1 }}
+          >
+            清除日期过滤
+          </Button>
+        )}
+      </Box>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>

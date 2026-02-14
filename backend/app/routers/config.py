@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict
+from datetime import datetime
 
 from app.database import get_db
 from app.schemas import (
@@ -9,6 +10,7 @@ from app.schemas import (
 )
 from app.services.news_service import ConfigService, CrawlerService
 from app.crawler import crawler_manager
+from app.tests.crawler.test_crawler_validity import CrawlerValidityTester
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -79,3 +81,63 @@ async def get_available_crawler_types():
     """获取所有可用的爬虫类型"""
     types = crawler_manager.get_available_types()
     return {"types": types}
+
+# ========== 爬虫测试 ==========
+
+@router.post("/crawlers/{config_id}/test")
+async def test_crawler_config(
+    config_id: int,
+    db: Session = Depends(get_db)
+):
+    """测试指定爬虫配置的有效性"""
+    config = CrawlerService.get_config_by_id(db, config_id)
+    if not config:
+        raise HTTPException(status_code=404, detail="Config not found")
+    
+    tester = CrawlerValidityTester()
+    is_valid, message = tester.test_crawler(config.to_dict())
+    
+    # 更新配置的有效性状态
+    config.is_valid = is_valid
+    config.last_test_at = datetime.utcnow()
+    config.test_message = message
+    db.commit()
+    
+    return {
+        "id": config.id,
+        "name": config.name,
+        "is_valid": is_valid,
+        "message": message,
+        "test_time": config.last_test_at.isoformat()
+    }
+
+@router.post("/crawlers/test-all")
+async def test_all_crawler_configs(
+    db: Session = Depends(get_db)
+):
+    """批量测试所有爬虫配置的有效性"""
+    configs = CrawlerService.get_all_configs(db)
+    tester = CrawlerValidityTester()
+    results = []
+    
+    for config in configs:
+        is_valid, message = tester.test_crawler(config.to_dict())
+        
+        # 更新配置的有效性状态
+        config.is_valid = is_valid
+        config.last_test_at = datetime.utcnow()
+        config.test_message = message
+        
+        results.append({
+            "id": config.id,
+            "name": config.name,
+            "is_valid": is_valid,
+            "message": message
+        })
+    
+    db.commit()
+    
+    return {
+        "total": len(configs),
+        "results": results
+    }

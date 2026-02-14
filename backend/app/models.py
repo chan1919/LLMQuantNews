@@ -197,6 +197,11 @@ class CrawlerConfig(Base):
     success_count = Column(Integer, default=0)
     error_count = Column(Integer, default=0)
     
+    # 有效性状态
+    is_valid = Column(Boolean, default=None)  # None: 未测试, True: 有效, False: 无效
+    last_test_at = Column(DateTime)  # 最后测试时间
+    test_message = Column(Text)  # 测试结果消息
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -217,6 +222,9 @@ class CrawlerConfig(Base):
             'total_crawled': self.total_crawled,
             'success_count': self.success_count,
             'error_count': self.error_count,
+            'is_valid': self.is_valid,
+            'last_test_at': self.last_test_at.isoformat() if self.last_test_at else None,
+            'test_message': self.test_message,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
