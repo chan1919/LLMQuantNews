@@ -60,3 +60,13 @@ async def get_available_models():
     """获取可用的AI模型列表"""
     models = llm_engine.get_available_models()
     return {"models": models}
+
+
+@router.get("/vapi/models")
+async def get_vapi_models(refresh: bool = False):
+    """获取V-API支持的模型列表"""
+    try:
+        models = await llm_engine.get_vapi_models(refresh)
+        return {"models": models}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
