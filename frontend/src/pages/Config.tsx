@@ -72,6 +72,11 @@ const fetchCrawlers = async (): Promise<any[]> => {
   return data;
 };
 
+const fetchVAPIModels = async (): Promise<any[]> => {
+  const { data } = await axios.get(`${API_URL}/ai/vapi/models`);
+  return data.models;
+};
+
 const updateCrawler = async (crawlerId: number, data: any): Promise<any> => {
   const { data: updated } = await axios.put(`${API_URL}/config/crawlers/${crawlerId}`, data);
   return updated;
@@ -103,6 +108,13 @@ export default function Config() {
     queryKey: ['crawlers'],
     queryFn: fetchCrawlers,
   });
+
+  const { data: vapiModels = [], isLoading: isLoadingVAPIModels } = useQuery({
+    queryKey: ['vapiModels'],
+    queryFn: fetchVAPIModels,
+  });
+
+  const [selectedVAPIModels, setSelectedVAPIModels] = useState<string[]>([]);
 
   const crawlerMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => updateCrawler(id, data),
@@ -617,6 +629,58 @@ export default function Config() {
             control={<Switch defaultChecked={configData?.enable_ai_scoring} />}
             label="启用AI评分"
           />
+
+          <Divider sx={{ my: 3 }} />
+
+          <Typography variant="h6" gutterBottom>
+            V-API模型配置
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            选择要使用的V-API模型（支持多选）
+          </Typography>
+          
+          {isLoadingVAPIModels ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} />
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
+              {vapiModels.map((model: any) => (
+                <Chip
+                  key={model.id}
+                  label={model.id}
+                  color={selectedVAPIModels.includes(model.id) ? 'primary' : 'default'}
+                  onClick={() => {
+                    if (selectedVAPIModels.includes(model.id)) {
+                      setSelectedVAPIModels(selectedVAPIModels.filter(id => id !== model.id));
+                    } else {
+                      setSelectedVAPIModels([...selectedVAPIModels, model.id]);
+                    }
+                  }}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Box>
+          )}
+
+          {selectedVAPIModels.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                已选择 {selectedVAPIModels.length} 个模型
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {selectedVAPIModels.map((modelId) => (
+                  <Chip
+                    key={modelId}
+                    label={modelId}
+                    color="primary"
+                    onDelete={() => setSelectedVAPIModels(selectedVAPIModels.filter(id => id !== modelId))}
+                    size="small"
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
         </TabPanel>
 
         {/* 爬虫管理 */}

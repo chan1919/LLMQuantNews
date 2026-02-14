@@ -59,6 +59,33 @@ const fetchNewsFeed = async (offset: number, limit: number, filters?: FilterPara
   return data;
 };
 
+const fetchTags = async (): Promise<string[]> => {
+  const { data } = await axios.get(`${API_URL}/news/tags/list`);
+  return data.tags || [];
+};
+
+const searchNews = async (query: string, skip: number = 0, limit: number = 20): Promise<FeedResponse> => {
+  const { data } = await axios.get(`${API_URL}/news/search`, {
+    params: { query, skip, limit }
+  });
+  return {
+    items: data.items || [],
+    total: data.total || 0,
+    has_more: (skip + limit) < (data.total || 0)
+  };
+};
+
+const searchByTags = async (tags: string[], skip: number = 0, limit: number = 20): Promise<FeedResponse> => {
+  const { data } = await axios.get(`${API_URL}/news/tags/search`, {
+    params: { tags, skip, limit }
+  });
+  return {
+    items: data.items || [],
+    total: data.total || 0,
+    has_more: (skip + limit) < (data.total || 0)
+  };
+};
+
 const getScoreColor = (score: number): 'error' | 'warning' | 'success' | 'default' => {
   if (score >= 70) return 'error';
   if (score >= 50) return 'warning';
@@ -141,20 +168,45 @@ export default function FeedList() {
   // 输入框状态
   const [keywordInput, setKeywordInput] = useState('');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  // 获取可用标签
+  const { data: tagsData, isLoading: tagsLoading } = useQuery({
+    queryKey: ['tags'],
+    queryFn: fetchTags,
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+  });
+
+  // 更新可用标签
+  useEffect(() => {
+    if (tagsData) {
+      setAvailableTags(tagsData);
+    }
+  }, [tagsData]);
 
   // 模拟数据 - 实际项目中应该从API获取
   const availableCategories = ['科技', '财经', '体育', '娱乐', '政治', '教育', '健康', '汽车'];
   const availableSources = ['新浪财经', '腾讯新闻', '网易新闻', '凤凰网', '新华网'];
 
+  // 基础新闻Feed查询
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['newsFeed', offset, filters],
     queryFn: () => fetchNewsFeed(offset, limit, filters),
-    enabled: hasMore,
+    enabled: hasMore && !isSearchMode,
+  });
+
+  // 搜索查询
+  const { data: searchData, isLoading: searchLoading, isFetching: searchFetching } = useQuery({
+    queryKey: ['searchNews', searchQuery, offset],
+    queryFn: () => searchNews(searchQuery, offset, limit),
+    enabled: isSearchMode && searchQuery.trim().length > 0,
   });
 
   // 当数据加载时追加到列表
   useEffect(() => {
-    if (data) {
+    if (data && !isSearchMode) {
       if (offset === 0) {
         setItems(data.items);
       } else {
@@ -162,7 +214,19 @@ export default function FeedList() {
       }
       setHasMore(data.has_more);
     }
-  }, [data, offset]);
+  }, [data, offset, isSearchMode]);
+
+  // 当搜索结果加载时
+  useEffect(() => {
+    if (searchData && isSearchMode) {
+      if (offset === 0) {
+        setItems(searchData.items);
+      } else {
+        setItems(prev => [...prev, ...searchData.items]);
+      }
+      setHasMore(searchData.has_more);
+    }
+  }, [searchData, offset, isSearchMode]);
 
   // 当筛选条件变化时重置偏移量
   useEffect(() => {
@@ -191,13 +255,27 @@ export default function FeedList() {
     setActiveFilters(active);
   }, [filters]);
 
+  // 预设关键词组
+  const predefinedKeywords = {
+    '科技': ['人工智能', '机器学习', '区块链', '元宇宙', '云计算', '大数据'],
+    '财经': ['股票市场', '数字货币', '通货膨胀', '利率', '经济增长', '投资策略'],
+    '政策': ['监管政策', '法律法规', '行业政策', '税收政策', '补贴政策'],
+    '市场': ['市场趋势', '竞争格局', '消费者行为', '商业模式', '技术创新']
+  };
+
   // 添加关键词
   const handleAddKeyword = () => {
     if (keywordInput.trim()) {
-      setFilters(prev => ({
-        ...prev,
-        keywords: [...(prev.keywords || []), keywordInput.trim()]
-      }));
+      setFilters(prev => {
+        const currentKeywords = prev.keywords || [];
+        if (!currentKeywords.includes(keywordInput.trim())) {
+          return {
+            ...prev,
+            keywords: [...currentKeywords, keywordInput.trim()]
+          };
+        }
+        return prev;
+      });
       setKeywordInput('');
     }
   };
@@ -208,6 +286,18 @@ export default function FeedList() {
       ...prev,
       keywords: prev.keywords?.filter(k => k !== keyword)
     }));
+  };
+
+  // 批量添加关键词组
+  const handleAddKeywordGroup = (group: string[]) => {
+    setFilters(prev => {
+      const currentKeywords = prev.keywords || [];
+      const newKeywords = group.filter(keyword => !currentKeywords.includes(keyword));
+      return {
+        ...prev,
+        keywords: [...currentKeywords, ...newKeywords]
+      };
+    });
   };
 
   // 处理分类选择
@@ -242,6 +332,42 @@ export default function FeedList() {
       sources: [],
       minScore: 0,
       maxScore: 100,
+    });
+  };
+
+  // 处理搜索提交
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setIsSearchMode(true);
+      setOffset(0);
+      setHasMore(true);
+    }
+  };
+
+  // 切换回筛选模式
+  const handleSwitchToFilterMode = () => {
+    setIsSearchMode(false);
+    setSearchQuery('');
+    setOffset(0);
+    setHasMore(true);
+  };
+
+  // 处理标签选择
+  const handleTagToggle = (tag: string) => {
+    setFilters(prev => {
+      const currentTags = prev.keywords || [];
+      if (currentTags.includes(tag)) {
+        return {
+          ...prev,
+          keywords: currentTags.filter(t => t !== tag)
+        };
+      } else {
+        return {
+          ...prev,
+          keywords: [...currentTags, tag]
+        };
+      }
     });
   };
 
@@ -282,138 +408,179 @@ export default function FeedList() {
         信息流
       </Typography>
 
-      {/* 筛选组件 */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FilterIcon fontSize="small" />
-          筛选条件
-        </Typography>
-
-        {/* 关键词输入 */}
-        <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
+      {/* 紧凑搜索和筛选组件 */}
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* 第一行：搜索框和模式切换 */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <TextField
             fullWidth
             variant="outlined"
-            placeholder="输入关键词"
-            value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
+            placeholder={isSearchMode ? "输入搜索查询" : "输入关键词或搜索查询"}
+            value={isSearchMode ? searchQuery : keywordInput}
+            onChange={(e) => isSearchMode ? setSearchQuery(e.target.value) : setKeywordInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                if (isSearchMode) {
+                  handleSearchSubmit(e);
+                } else {
+                  handleAddKeyword();
+                }
+              }
+            }}
             size="small"
+            sx={{ flex: 1 }}
           />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleAddKeyword}
-          >
-            添加
-          </Button>
+          {isSearchMode ? (
+            <>
+              <Button
+                type="submit"
+                variant="contained"
+                size="small"
+                onClick={(e) => handleSearchSubmit(e)}
+              >
+                搜索
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleSwitchToFilterMode}
+              >
+                筛选
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleAddKeyword}
+              >
+                添加
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={(e) => handleSearchSubmit(e)}
+              >
+                搜索
+              </Button>
+            </>
+          )}
         </Box>
 
-        {/* 已选关键词 */}
-        {filters.keywords && filters.keywords.length > 0 && (
-          <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {filters.keywords.map((keyword, index) => (
-              <Chip
-                key={index}
-                label={keyword}
-                onDelete={() => handleRemoveKeyword(keyword)}
+        {/* 第二行：快速筛选选项 */}
+        {!isSearchMode && (
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* 分类选择 */}
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="category-select-label">分类</InputLabel>
+              <Select
+                labelId="category-select-label"
+                multiple
+                value={filters.categories || []}
+                onChange={handleCategoryChange}
+                label="分类"
+                renderValue={(selected) => selected.join(', ')}
                 size="small"
-                sx={{ bgcolor: '#e3f2fd', color: '#1976d2' }}
+              >
+                {availableCategories.map((category) => (
+                  <MenuItem key={category} value={category}>
+                    <Checkbox checked={(filters.categories || []).includes(category)} />
+                    <ListItemText primary={category} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* 来源选择 */}
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="source-select-label">来源</InputLabel>
+              <Select
+                labelId="source-select-label"
+                multiple
+                value={filters.sources || []}
+                onChange={handleSourceChange}
+                label="来源"
+                renderValue={(selected) => selected.join(', ')}
+                size="small"
+              >
+                {availableSources.map((source) => (
+                  <MenuItem key={source} value={source}>
+                    <Checkbox checked={(filters.sources || []).includes(source)} />
+                    <ListItemText primary={source} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* 评分范围 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>评分:</Typography>
+              <TextField
+                type="number"
+                size="small"
+                value={filters.minScore}
+                onChange={(e) => handleScoreChange('min', parseInt(e.target.value) || 0)}
+                InputProps={{ inputProps: { min: 0, max: 100 } }}
+                sx={{ width: 60 }}
+              />
+              <Typography variant="body2">-</Typography>
+              <TextField
+                type="number"
+                size="small"
+                value={filters.maxScore}
+                onChange={(e) => handleScoreChange('max', parseInt(e.target.value) || 100)}
+                InputProps={{ inputProps: { min: 0, max: 100 } }}
+                sx={{ width: 60 }}
+              />
+            </Box>
+
+            {/* 操作按钮 */}
+            <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleResetFilters}
+              >
+                重置
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => setOffset(0)}
+              >
+                应用
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Box>
+
+      {/* AI标签选择（紧凑版） */}
+      {!isSearchMode && availableTags.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+            AI标签:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, maxHeight: 80, overflowY: 'auto' }}>
+            {availableTags.slice(0, 15).map((tag) => (
+              <Chip
+                key={tag}
+                label={tag}
+                onClick={() => handleTagToggle(tag)}
+                color={filters.keywords?.includes(tag) ? 'primary' : 'default'}
+                variant={filters.keywords?.includes(tag) ? 'filled' : 'outlined'}
+                size="small"
+                sx={{ cursor: 'pointer' }}
               />
             ))}
           </Box>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* 分类和来源选择 */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
-          {/* 分类选择 */}
-          <FormControl fullWidth size="small">
-            <InputLabel id="category-select-label">分类</InputLabel>
-            <Select
-              labelId="category-select-label"
-              multiple
-              value={filters.categories || []}
-              onChange={handleCategoryChange}
-              label="分类"
-              renderValue={(selected) => selected.join(', ')}
-            >
-              {availableCategories.map((category) => (
-                <MenuItem key={category} value={category}>
-                  <Checkbox checked={(filters.categories || []).includes(category)} />
-                  <ListItemText primary={category} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {/* 来源选择 */}
-          <FormControl fullWidth size="small">
-            <InputLabel id="source-select-label">来源</InputLabel>
-            <Select
-              labelId="source-select-label"
-              multiple
-              value={filters.sources || []}
-              onChange={handleSourceChange}
-              label="来源"
-              renderValue={(selected) => selected.join(', ')}
-            >
-              {availableSources.map((source) => (
-                <MenuItem key={source} value={source}>
-                  <Checkbox checked={(filters.sources || []).includes(source)} />
-                  <ListItemText primary={source} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </Box>
+      )}
 
-        {/* 评分范围 */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body2" sx={{ minWidth: 80 }}>评分范围:</Typography>
-          <TextField
-            type="number"
-            size="small"
-            value={filters.minScore}
-            onChange={(e) => handleScoreChange('min', parseInt(e.target.value) || 0)}
-            InputProps={{ inputProps: { min: 0, max: 100 } }}
-            sx={{ width: 80 }}
-          />
-          <Typography variant="body2">-</Typography>
-          <TextField
-            type="number"
-            size="small"
-            value={filters.maxScore}
-            onChange={(e) => handleScoreChange('max', parseInt(e.target.value) || 100)}
-            InputProps={{ inputProps: { min: 0, max: 100 } }}
-            sx={{ width: 80 }}
-          />
-        </Box>
-
-        {/* 操作按钮 */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleResetFilters}
-          >
-            重置
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<RefreshIcon fontSize="small" />}
-            onClick={() => setOffset(0)}
-          >
-            应用筛选
-          </Button>
-        </Box>
-      </Paper>
-
-      {/* 激活的筛选条件显示 */}
+      {/* 已选条件显示 */}
       {activeFilters.length > 0 && (
-        <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {activeFilters.map((filter, index) => (
             <Chip key={index} label={filter} size="small" sx={{ bgcolor: '#f5f5f5' }} />
           ))}
