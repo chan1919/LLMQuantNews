@@ -4,7 +4,7 @@ Celery 任务模块 - 爬虫和推送任务
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 from app.services.celery_app import celery_app
@@ -49,6 +49,28 @@ def crawl_single_source(self, config_id: int):
                 # 检查是否已存在（根据URL去重）
                 existing = db.query(News).filter(News.url == item.url).first()
                 if existing:
+                    print(f"新闻已存在（URL重复）: {item.title}")
+                    continue
+                
+                # 检查内容相似性（基于标题和内容）
+                import hashlib
+                from sqlalchemy import or_
+                
+                # 生成内容摘要
+                content_text = f"{item.title} {item.content or ''}"
+                content_hash = hashlib.md5(content_text.encode('utf-8')).hexdigest()
+                
+                # 检查最近的新闻是否有相似内容
+                recent_news = db.query(News).filter(
+                    or_(
+                        News.title == item.title,
+                        News.content == item.content
+                    ),
+                    News.crawled_at >= datetime.utcnow() - timedelta(days=1)
+                ).first()
+                
+                if recent_news:
+                    print(f"新闻已存在（内容重复）: {item.title}")
                     continue
                 
                 # 创建新闻记录
@@ -70,6 +92,12 @@ def crawl_single_source(self, config_id: int):
                 # AI处理（直接调用）
                 ai_scores = None
                 try:
+                    print(f"开始AI分析: {news.title}")
+                    
+                    # 启用LiteLLM的详细日志
+                    import litellm
+                    litellm.verbose = True
+                    
                     # 使用asyncio运行异步AI处理
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
@@ -84,15 +112,26 @@ def crawl_single_source(self, config_id: int):
                     finally:
                         loop.close()
                     
+                    print(f"AI分析结果: {ai_result}")
+                    
+                    # 检查是否有错误
+                    if 'error' in ai_result:
+                        print(f"AI分析错误: {ai_result['error']}")
+                        # 即使有错误，也尝试更新可用的结果
+                    
                     # 更新新闻记录
                     if 'summary' in ai_result:
                         news.summary = ai_result['summary']
+                        print(f"生成摘要: {ai_result['summary'][:100]}...")
                     if 'categories' in ai_result:
                         news.categories = ai_result['categories']
+                        print(f"分类: {ai_result['categories']}")
                     if 'keywords' in ai_result:
                         news.keywords = ai_result['keywords']
+                        print(f"关键词: {ai_result['keywords']}")
                     if 'sentiment' in ai_result:
                         news.sentiment = ai_result['sentiment']
+                        print(f"情感: {ai_result['sentiment']}")
                     if 'scores' in ai_result:
                         scores = ai_result['scores']
                         news.ai_score = sum(scores.values()) / len(scores) if scores else 50
@@ -100,6 +139,7 @@ def crawl_single_source(self, config_id: int):
                         news.industry_relevance = scores.get('industry_relevance', 50)
                         news.novelty_score = scores.get('novelty_score', 50)
                         news.urgency = scores.get('urgency', 50)
+                        print(f"评分: {scores}")
                     
                     # 更新分析状态
                     news.is_analyzed = True
@@ -130,7 +170,17 @@ def crawl_single_source(self, config_id: int):
                     print(f"AI处理成功: {news.title}")
                     
                 except Exception as e:
-                    print(f"AI处理失败: {e}")
+                    import traceback
+                    error_msg = f"AI处理失败: {e}\n{traceback.format_exc()}"
+                    print(error_msg)
+                    # 即使AI分析失败，也继续处理新闻
+                    # 设置默认值，确保新闻记录完整
+                    news.is_analyzed = False
+                    news.ai_score = 50  # 默认评分
+                    news.summary = f"AI分析失败: {str(e)}"
+                    news.sentiment = 'neutral'  # 默认情感
+                    news.keywords = []  # 默认关键词
+                    news.categories = []  # 默认分类
                 
                 # 评分计算
                 from app.scoring.engine import NewsScorer
