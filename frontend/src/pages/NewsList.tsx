@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Paper,
@@ -23,6 +23,7 @@ import {
   Tab,
 } from '@mui/material'
 import axios from 'axios'
+import { useWebSocket } from '../components/Layout'
 
 const API_URL = '/api/v1'
 
@@ -75,6 +76,8 @@ export default function NewsList() {
     date: '',
   })
   const [dates] = useState<Date[]>(generateRecentDates())
+  const queryClient = useQueryClient()
+  const { latestData, isConnected } = useWebSocket()
 
   const { data, isLoading } = useQuery({
     queryKey: ['news', page, rowsPerPage, filters],
@@ -85,6 +88,16 @@ export default function NewsList() {
         ...filters,
       }),
   })
+
+  // 当接收到 WebSocket 消息时，刷新数据
+  useEffect(() => {
+    if (latestData && latestData.type === 'dashboard_update') {
+      // 如果当前没有按日期过滤，或者过滤的是今天，则刷新数据
+      if (!filters.date || filters.date === formatDate(new Date())) {
+        queryClient.invalidateQueries({ queryKey: ['news'] })
+      }
+    }
+  }, [latestData, filters.date, queryClient])
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage)

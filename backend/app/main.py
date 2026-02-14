@@ -39,36 +39,58 @@ async def periodic_push():
     while True:
         try:
             # 获取数据库会话
-            db = next(get_db())
+            from app.database import SessionLocal
+            db = SessionLocal()
             
-            # 获取仪表盘统计数据
-            from sqlalchemy import func
-            from datetime import datetime, timedelta
-            
-            # 今日统计
-            today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_news = db.query(func.count(News.id)).filter(News.crawled_at >= today).scalar() or 0
-            today_pushed = db.query(func.count(News.id)).filter(
-                News.is_pushed == True,
-                News.last_push_at >= today
-            ).scalar() or 0
-            
-            # 最近新闻
-            recent_news = db.query(News).order_by(News.crawled_at.desc()).limit(5).all()
-            recent_news_list = [news.to_dict() for news in recent_news]
-            
-            # 构建消息
-            message = {
-                "type": "dashboard_update",
-                "data": {
-                    "today_news": today_news,
-                    "today_pushed": today_pushed,
-                    "recent_news": recent_news_list
+            try:
+                # 获取仪表盘统计数据
+                from sqlalchemy import func
+                from datetime import datetime, timedelta
+                
+                # 今日统计
+                today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_news = db.query(func.count(News.id)).filter(News.crawled_at >= today).scalar() or 0
+                today_pushed = db.query(func.count(News.id)).filter(
+                    News.is_pushed == True,
+                    News.last_push_at >= today
+                ).scalar() or 0
+                
+                # 最近新闻（使用原生SQL查询，只查询存在的字段）
+                from sqlalchemy import text
+                recent_news_result = db.execute(text("""
+                    SELECT id, title, source, final_score, crawled_at 
+                    FROM news 
+                    ORDER BY crawled_at DESC 
+                    LIMIT 5
+                """)).fetchall()
+                
+                recent_news_list = []
+                for news in recent_news_result:
+                    news_dict = {
+                        "id": news.id,
+                        "title": news.title,
+                        "source": news.source,
+                        "final_score": news.final_score,
+                        "crawled_at": news.crawled_at.isoformat() if news.crawled_at else None
+                    }
+                    recent_news_list.append(news_dict)
+                
+                # 构建消息
+                message = {
+                    "type": "dashboard_update",
+                    "data": {
+                        "today_news": today_news,
+                        "today_pushed": today_pushed,
+                        "recent_news": recent_news_list
+                    }
                 }
-            }
-            
-            # 广播消息
-            await manager.broadcast(message)
+                
+                # 广播消息
+                await manager.broadcast(message)
+                
+            finally:
+                # 关闭数据库会话
+                db.close()
             
         except Exception as e:
             print(f"Error in periodic push: {e}")

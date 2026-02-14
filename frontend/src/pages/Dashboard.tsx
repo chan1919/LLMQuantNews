@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material'
 import axios from 'axios'
 import { useState, useEffect } from 'react'
+import { useWebSocket } from '../components/Layout'
 
 const API_URL = '/api/v1'
 
@@ -65,12 +66,37 @@ const fetchDashboardStats = async (date?: string) => {
 export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [dates, setDates] = useState<Date[]>(generateRecentDates())
+  const [localStats, setLocalStats] = useState<any>(null)
   const queryClient = useQueryClient()
+  const { latestData, isConnected } = useWebSocket()
 
+  // 使用 useQuery 获取初始数据
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboardStats', formatDate(selectedDate)],
     queryFn: () => fetchDashboardStats(formatDate(selectedDate)),
   })
+
+  // 当获取到初始数据时，更新本地状态
+  useEffect(() => {
+    if (stats) {
+      setLocalStats(stats)
+    }
+  }, [stats])
+
+  // 当接收到 WebSocket 消息时，更新本地状态
+  useEffect(() => {
+    if (latestData && latestData.type === 'dashboard_update') {
+      // 只更新当天的数据
+      if (formatDate(selectedDate) === formatDate(new Date())) {
+        setLocalStats(prevStats => ({
+          ...prevStats,
+          today_news: latestData.data.today_news,
+          today_pushed: latestData.data.today_pushed,
+          recent_news: latestData.data.recent_news
+        }))
+      }
+    }
+  }, [latestData, selectedDate])
 
   // 处理日期选择
   const handleDateChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -81,32 +107,35 @@ export default function Dashboard() {
     return <LinearProgress />
   }
 
+  // 使用本地状态或查询数据
+  const displayStats = localStats || stats
+
   const statCards = [
     {
       title: '总新闻数',
-      value: stats?.total_news || 0,
-      subValue: `${formatDisplayDate(selectedDate)}: ${stats?.today_news || 0}`,
+      value: displayStats?.total_news || 0,
+      subValue: `${formatDisplayDate(selectedDate)}: ${displayStats?.today_news || 0}`,
       icon: <ArticleIcon />,
       color: '#667eea',
     },
     {
       title: '已推送',
-      value: stats?.total_pushed || 0,
-      subValue: `${formatDisplayDate(selectedDate)}: ${stats?.today_pushed || 0}`,
+      value: displayStats?.total_pushed || 0,
+      subValue: `${formatDisplayDate(selectedDate)}: ${displayStats?.today_pushed || 0}`,
       icon: <TrendingIcon />,
       color: '#764ba2',
     },
     {
       title: '月度成本',
-      value: `$${(stats?.monthly_cost_usd || 0).toFixed(2)}`,
-      subValue: `总成本: $${(stats?.total_cost_usd || 0).toFixed(2)}`,
+      value: `$${(displayStats?.monthly_cost_usd || 0).toFixed(2)}`,
+      subValue: `总成本: $${(displayStats?.total_cost_usd || 0).toFixed(2)}`,
       icon: <MoneyIcon />,
       color: '#f093fb',
     },
     {
       title: '活跃爬虫',
-      value: stats?.active_crawlers || 0,
-      subValue: `平均分: ${(stats?.avg_score || 0).toFixed(1)}`,
+      value: displayStats?.active_crawlers || 0,
+      subValue: `平均分: ${(displayStats?.avg_score || 0).toFixed(1)}`,
       icon: <SettingsIcon />,
       color: '#4facfe',
     },
@@ -187,8 +216,8 @@ export default function Dashboard() {
       </Typography>
       
       <Paper sx={{ p: 2 }}>
-        {stats?.recent_news?.length > 0 ? (
-          stats.recent_news.map((news: any) => (
+        {displayStats?.recent_news?.length > 0 ? (
+          displayStats.recent_news.map((news: any) => (
             <Box key={news.id} sx={{ mb: 2, pb: 2, borderBottom: '1px solid #eee' }}>
               <Typography variant="h6">{news.title}</Typography>
               <Typography variant="body2" color="textSecondary">
