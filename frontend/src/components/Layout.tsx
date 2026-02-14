@@ -66,45 +66,112 @@ export default function Layout({ children }: LayoutProps) {
 
   // 处理 WebSocket 连接
   useEffect(() => {
+    let socket: WebSocket | null = null
+    let heartbeatInterval: NodeJS.Timeout | null = null
+    let reconnectTimeout: NodeJS.Timeout | null = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000 // 3秒
+    const heartbeatIntervalTime = 30000 // 30秒
+    
     // 创建 WebSocket 连接
-    const socket = new WebSocket('ws://localhost:8000/ws')
-    
-    // 连接打开时
-    socket.onopen = () => {
-      console.log('WebSocket connected')
-      setIsConnected(true)
-      setNotification({ message: '实时数据连接已建立', type: 'success' })
-    }
-    
-    // 接收消息时
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data)
-        console.log('Received message:', message)
-        setLatestData(message)
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error)
+    const createWebSocket = () => {
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        console.error('Max reconnect attempts reached')
+        setNotification({ message: '实时数据连接重连失败，请刷新页面', type: 'error' })
+        return
+      }
+      
+      socket = new WebSocket('ws://localhost:3000/ws')
+      
+      // 连接打开时
+      socket.onopen = () => {
+        console.log('WebSocket connected')
+        setIsConnected(true)
+        setNotification({ message: '实时数据连接已建立', type: 'success' })
+        reconnectAttempts = 0
+        
+        // 启动心跳检测
+        startHeartbeat()
+      }
+      
+      // 接收消息时
+      socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data)
+          console.log('Received message:', message)
+          setLatestData(message)
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error)
+        }
+      }
+      
+      // 连接关闭时
+      socket.onclose = () => {
+        console.log('WebSocket disconnected')
+        setIsConnected(false)
+        
+        // 停止心跳检测
+        stopHeartbeat()
+        
+        // 尝试重新连接
+        if (reconnectAttempts < maxReconnectAttempts) {
+          setNotification({ message: '实时数据连接已断开，正在尝试重连...', type: 'warning' })
+          reconnectAttempts++
+          reconnectTimeout = setTimeout(() => {
+            createWebSocket()
+          }, reconnectDelay)
+        }
+      }
+      
+      // 连接错误时
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setNotification({ message: '实时数据连接出错，正在尝试重连...', type: 'error' })
       }
     }
     
-    // 连接关闭时
-    socket.onclose = () => {
-      console.log('WebSocket disconnected')
-      setIsConnected(false)
-      setNotification({ message: '实时数据连接已断开', type: 'warning' })
+    // 启动心跳检测
+    const startHeartbeat = () => {
+      stopHeartbeat() // 先停止之前的心跳
+      
+      heartbeatInterval = setInterval(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          try {
+            socket.send('ping') // 发送心跳包
+          } catch (error) {
+            console.error('Error sending heartbeat:', error)
+            // 如果发送失败，可能连接已断开
+            if (socket) {
+              socket.close()
+            }
+          }
+        }
+      }, heartbeatIntervalTime)
     }
     
-    // 连接错误时
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error)
-      setNotification({ message: '实时数据连接出错', type: 'error' })
+    // 停止心跳检测
+    const stopHeartbeat = () => {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+        heartbeatInterval = null
+      }
     }
     
-    setWs(socket)
+    // 创建初始连接
+    createWebSocket()
     
     // 清理函数
     return () => {
-      socket.close()
+      if (socket) {
+        socket.close()
+      }
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout)
+      }
     }
   }, [])
 

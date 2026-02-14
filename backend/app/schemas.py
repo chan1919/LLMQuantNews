@@ -134,12 +134,9 @@ class LLMCostResponse(BaseModel):
         from_attributes = True
 
 class CostSummary(BaseModel):
-    total_cost_usd: float
-    total_cost_cny: float
     total_requests: int
     total_tokens: int
-    by_model: Dict[str, Dict[str, float]]
-    by_day: List[Dict[str, Any]]
+    by_model: Dict[str, Dict[str, Any]]
 
 class PushTestRequest(BaseModel):
     channel: str = Field(..., pattern="^(feishu|email)$")
@@ -173,8 +170,8 @@ class DashboardStats(BaseModel):
     total_pushed: int
     today_pushed: int
     avg_score: float
-    total_cost_usd: float
-    monthly_cost_usd: float
+    total_requests: int
+    total_tokens: int
     active_crawlers: int
     recent_news: List[NewsResponse]
 
@@ -258,7 +255,7 @@ class UserConfigBase(BaseModel):
     ai_weight: float = Field(default=0.6, ge=0, le=1)
     rule_weight: float = Field(default=0.4, ge=0, le=1)
     min_score_threshold: float = Field(default=60.0, ge=0, le=100)
-    default_llm_model: str = Field(default="gpt-4o", max_length=100)
+    default_llm_model: str = Field(default="deepseek-chat", max_length=100)
     enable_ai_summary: bool = True
     enable_ai_classification: bool = True
     enable_ai_scoring: bool = True

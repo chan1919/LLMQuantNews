@@ -237,18 +237,10 @@ class CostService:
     
     @staticmethod
     def get_cost_summary(db: Session, days: int = 30) -> Dict[str, Any]:
-        """获取成本汇总"""
+        """获取使用统计汇总"""
+        from datetime import timedelta
         from_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        from_date = from_date.replace(day=from_date.day - days)
-        
-        # 总成本
-        total_cost = db.query(func.sum(LLMCost.cost_usd)).filter(
-            LLMCost.created_at >= from_date
-        ).scalar() or 0
-        
-        total_cny = db.query(func.sum(LLMCost.cost_cny)).filter(
-            LLMCost.created_at >= from_date
-        ).scalar() or 0
+        from_date = from_date - timedelta(days=days)
         
         # 总请求数
         total_requests = db.query(func.count(LLMCost.id)).filter(
@@ -263,25 +255,25 @@ class CostService:
         # 按模型统计
         by_model = db.query(
             LLMCost.model,
-            func.sum(LLMCost.cost_usd).label('cost'),
             func.count(LLMCost.id).label('count'),
-            func.sum(LLMCost.total_tokens).label('tokens')
+            func.sum(LLMCost.total_tokens).label('tokens'),
+            func.sum(LLMCost.prompt_tokens).label('prompt_tokens'),
+            func.sum(LLMCost.completion_tokens).label('completion_tokens')
         ).filter(
             LLMCost.created_at >= from_date
         ).group_by(LLMCost.model).all()
         
         by_model_dict = {
             row.model: {
-                'cost_usd': round(row.cost, 4),
                 'requests': row.count,
-                'tokens': row.tokens or 0
+                'tokens': row.tokens or 0,
+                'prompt_tokens': row.prompt_tokens or 0,
+                'completion_tokens': row.completion_tokens or 0
             }
             for row in by_model
         }
         
         return {
-            'total_cost_usd': round(total_cost, 4),
-            'total_cost_cny': round(total_cny, 4),
             'total_requests': total_requests,
             'total_tokens': total_tokens or 0,
             'by_model': by_model_dict,

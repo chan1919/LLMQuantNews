@@ -22,6 +22,8 @@ import {
   Snackbar,
   CircularProgress,
   Tooltip,
+  Divider,
+  FormControl,
 } from '@mui/material';
 import {
   TrendingUp as BullishIcon,
@@ -33,6 +35,7 @@ import {
   Cancel as InvalidIcon,
   HelpOutline as UnknownIcon,
   Refresh as TestIcon,
+  Remove as NeutralIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import type { UserConfig, TimeFrame } from '../types';
@@ -599,7 +602,7 @@ export default function Config() {
           <TextField
             fullWidth
             label="默认模型"
-            defaultValue={configData?.default_llm_model || 'gpt-4o'}
+            defaultValue={configData?.default_llm_model || 'deepseek-chat'}
             sx={{ mb: 2, maxWidth: 400 }}
           />
           <FormControlLabel

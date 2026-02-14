@@ -71,7 +71,9 @@ class BaseNewsCrawler(ABC):
                 try:
                     item = await self.parse(raw_data)
                     if item and self._validate(item):
-                        news_items.append(item)
+                        # 清洗数据
+                        cleaned_item = self._clean_data(item)
+                        news_items.append(cleaned_item)
                 except Exception as e:
                     print(f"解析失败: {e}")
                     continue
@@ -88,6 +90,36 @@ class BaseNewsCrawler(ABC):
         if not item.url or not item.url.startswith('http'):
             return False
         return True
+    
+    def _clean_data(self, item: NewsItem) -> NewsItem:
+        """清洗新闻数据，移除HTML标签和前端代码痕迹"""
+        import re
+        
+        # 清洗标题
+        if item.title:
+            # 移除HTML标签
+            item.title = re.sub(r'<[^>]+>', '', item.title)
+            # 移除多余空白
+            item.title = re.sub(r'\s+', ' ', item.title).strip()
+        
+        # 清洗内容
+        if item.content:
+            # 移除HTML标签
+            item.content = re.sub(r'<[^>]+>', '', item.content)
+            # 移除前端代码痕迹（如<script>、<style>等）
+            item.content = re.sub(r'<script[^>]*>.*?</script>', '', item.content, flags=re.DOTALL)
+            item.content = re.sub(r'<style[^>]*>.*?</style>', '', item.content, flags=re.DOTALL)
+            # 移除多余空白
+            item.content = re.sub(r'\s+', ' ', item.content).strip()
+        
+        # 清洗摘要
+        if item.summary:
+            # 移除HTML标签
+            item.summary = re.sub(r'<[^>]+>', '', item.summary)
+            # 移除多余空白
+            item.summary = re.sub(r'\s+', ' ', item.summary).strip()
+        
+        return item
     
     def get_stats(self) -> Dict[str, Any]:
         """获取爬虫统计信息"""

@@ -6,7 +6,6 @@ import {
   Card,
   CardContent,
   LinearProgress,
-  Alert,
   Table,
   TableBody,
   TableCell,
@@ -23,59 +22,23 @@ const fetchCostSummary = async () => {
   return data
 }
 
-const fetchBudgetStatus = async () => {
-  const { data } = await axios.get(`${API_URL}/costs/budget`)
-  return data
-}
-
 export default function Costs() {
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['costSummary'],
     queryFn: fetchCostSummary,
   })
 
-  const { data: budget, isLoading: budgetLoading } = useQuery({
-    queryKey: ['budgetStatus'],
-    queryFn: fetchBudgetStatus,
-  })
-
-  if (summaryLoading || budgetLoading) {
+  if (summaryLoading) {
     return <LinearProgress />
   }
 
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 2 }}>
-        成本统计
+        使用统计
       </Typography>
 
-      {budget?.status === 'danger' && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          本月预算已超支！当前使用: ${budget?.monthly_cost_usd} / ${budget?.budget_usd}
-        </Alert>
-      )}
-
-      {budget?.status === 'warning' && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          本月预算即将用尽！当前使用: {budget?.percentage}%
-        </Alert>
-      )}
-
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ minWidth: 200 }}>
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              本月成本 (USD)
-            </Typography>
-            <Typography variant="h4">
-              ${summary?.total_cost_usd?.toFixed(2) || '0.00'}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              ¥{summary?.total_cost_cny?.toFixed(2) || '0.00'}
-            </Typography>
-          </CardContent>
-        </Card>
-
         <Card sx={{ minWidth: 200 }}>
           <CardContent>
             <Typography color="textSecondary" gutterBottom>
@@ -85,7 +48,7 @@ export default function Costs() {
               {summary?.total_requests || 0}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              {summary?.total_tokens?.toLocaleString() || 0} tokens
+              次API调用
             </Typography>
           </CardContent>
         </Card>
@@ -93,13 +56,13 @@ export default function Costs() {
         <Card sx={{ minWidth: 200 }}>
           <CardContent>
             <Typography color="textSecondary" gutterBottom>
-              预算状态
+              总Token消耗
             </Typography>
             <Typography variant="h4">
-              {budget?.percentage?.toFixed(1) || 0}%
+              {summary?.total_tokens?.toLocaleString() || 0}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              ${budget?.remaining?.toFixed(2) || '0.00'} 剩余
+              Tokens
             </Typography>
           </CardContent>
         </Card>
@@ -115,8 +78,9 @@ export default function Costs() {
             <TableRow>
               <TableCell>模型</TableCell>
               <TableCell align="right">请求数</TableCell>
-              <TableCell align="right">Tokens</TableCell>
-              <TableCell align="right">成本 (USD)</TableCell>
+              <TableCell align="right">总Tokens</TableCell>
+              <TableCell align="right">输入Tokens</TableCell>
+              <TableCell align="right">输出Tokens</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -125,7 +89,8 @@ export default function Costs() {
                 <TableCell>{model}</TableCell>
                 <TableCell align="right">{data.requests}</TableCell>
                 <TableCell align="right">{data.tokens?.toLocaleString()}</TableCell>
-                <TableCell align="right">${data.cost_usd?.toFixed(4)}</TableCell>
+                <TableCell align="right">{data.prompt_tokens?.toLocaleString()}</TableCell>
+                <TableCell align="right">{data.completion_tokens?.toLocaleString()}</TableCell>
               </TableRow>
             ))}
           </TableBody>

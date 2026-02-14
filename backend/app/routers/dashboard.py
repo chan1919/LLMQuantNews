@@ -55,9 +55,10 @@ async def get_dashboard_stats(
         News.crawled_at < next_date
     ).scalar() or 0
     
-    # 成本统计
-    total_cost = CostService.get_cost_summary(db, days=365).get('total_cost_usd', 0)
-    monthly_cost = CostService.get_monthly_cost(db)
+    # 使用统计
+    usage_summary = CostService.get_cost_summary(db, days=365)
+    total_requests = usage_summary.get('total_requests', 0)
+    total_tokens = usage_summary.get('total_tokens', 0)
     
     # 活跃爬虫数
     from app.services.news_service import CrawlerService
@@ -75,8 +76,8 @@ async def get_dashboard_stats(
         "total_pushed": total_pushed,
         "today_pushed": date_pushed,
         "avg_score": round(date_avg_score, 2),
-        "total_cost_usd": total_cost,
-        "monthly_cost_usd": monthly_cost,
+        "total_requests": total_requests,
+        "total_tokens": total_tokens,
         "active_crawlers": active_crawlers,
         "recent_news": [news.to_dict() for news in date_news_list]
     }

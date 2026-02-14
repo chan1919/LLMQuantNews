@@ -71,7 +71,7 @@ async def periodic_push():
                         "title": news.title,
                         "source": news.source,
                         "final_score": news.final_score,
-                        "crawled_at": news.crawled_at.isoformat() if news.crawled_at else None
+                        "crawled_at": news.crawled_at
                     }
                     recent_news_list.append(news_dict)
                 
@@ -138,8 +138,11 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # 保持连接活跃
-            await websocket.receive_text()
+            # 接收消息
+            data = await websocket.receive_text()
+            # 处理心跳包
+            if data == "ping":
+                await websocket.send_text("pong")
     except:
         manager.disconnect(websocket)
 

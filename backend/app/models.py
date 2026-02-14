@@ -91,6 +91,7 @@ class News(Base):
             'impact_analysis': self.impact_analysis,
             'brief_impact': self.brief_impact,
             'is_pushed': self.is_pushed,
+            'pushed_to': getattr(self, 'pushed_to', []),
             'llm_model_used': self.llm_model_used,
         }
 
@@ -120,7 +121,7 @@ class UserConfig(Base):
     min_score_threshold = Column(Float, default=60.0)
     
     # AI处理配置
-    default_llm_model = Column(String(100), default="gpt-4o")
+    default_llm_model = Column(String(100), default="deepseek-chat")
     enable_ai_summary = Column(Boolean, default=True)
     enable_ai_classification = Column(Boolean, default=True)
     enable_ai_scoring = Column(Boolean, default=True)

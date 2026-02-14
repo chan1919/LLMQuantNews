@@ -24,18 +24,26 @@ async def list_news(
     source: Optional[str] = None,
     keyword: Optional[str] = None,
     category: Optional[str] = None,
-    min_score: Optional[float] = Query(None, ge=0, le=100),
+    min_score: Optional[str] = Query(None),
     max_score: Optional[float] = Query(None, ge=0, le=100),
     is_pushed: Optional[bool] = None,
     date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """获取新闻列表"""
+    # 处理min_score参数
+    min_score_float = None
+    if min_score and min_score.strip():
+        try:
+            min_score_float = float(min_score)
+        except ValueError:
+            pass
+    
     filters = NewsFilter(
         source=source,
         keyword=keyword,
         category=category,
-        min_score=min_score,
+        min_score=min_score_float,
         max_score=max_score,
         is_pushed=is_pushed
     )
@@ -50,8 +58,8 @@ async def list_news(
         query = query.filter(News.title.ilike(f"%{keyword}%"))
     if category:
         query = query.filter(News.categories.contains([category]))
-    if min_score is not None:
-        query = query.filter(News.final_score >= min_score)
+    if min_score_float is not None:
+        query = query.filter(News.final_score >= min_score_float)
     if max_score is not None:
         query = query.filter(News.final_score <= max_score)
     if is_pushed is not None:
@@ -81,53 +89,6 @@ async def list_news(
         "page": skip // limit + 1 if limit > 0 else 1,
         "page_size": limit
     }
-
-@router.get("/{news_id}", response_model=NewsResponse)
-async def get_news(news_id: int, db: Session = Depends(get_db)):
-    """获取单条新闻详情"""
-    news = NewsService.get_news_by_id(db, news_id)
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    return news.to_dict()
-
-@router.post("", response_model=NewsResponse)
-async def create_news(news_data: NewsCreate, db: Session = Depends(get_db)):
-    """创建新闻（手动添加）"""
-    news = NewsService.create_news(db, news_data)
-    return news.to_dict()
-
-@router.put("/{news_id}", response_model=NewsResponse)
-async def update_news(
-    news_id: int, 
-    news_data: NewsUpdate, 
-    db: Session = Depends(get_db)
-):
-    """更新新闻"""
-    news = NewsService.update_news(db, news_id, news_data)
-    if not news:
-        raise HTTPException(status_code=404, detail="News not found")
-    return news.to_dict()
-
-@router.delete("/{news_id}")
-async def delete_news(news_id: int, db: Session = Depends(get_db)):
-    """删除新闻"""
-    success = NewsService.delete_news(db, news_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="News not found")
-    return {"message": "News deleted successfully"}
-
-@router.get("/sources/list")
-async def get_sources(db: Session = Depends(get_db)):
-    """获取所有新闻来源"""
-    sources = NewsService.get_sources(db)
-    return {"sources": sources}
-
-@router.get("/categories/list")
-async def get_categories(db: Session = Depends(get_db)):
-    """获取所有分类"""
-    categories = NewsService.get_categories(db)
-    return {"categories": categories}
-
 
 @router.get("/feed", response_model=FeedListResponse)
 async def get_news_feed(
@@ -164,6 +125,7 @@ async def get_news_feed(
         
         # 准备简短影响
         brief_impact = news.brief_impact or "暂无影响分析"
+        brief_impact = brief_impact[:100]
         
         feed_items.append({
             "id": news.id,
@@ -196,6 +158,52 @@ async def get_news_feed(
         "total": total,
         "has_more": has_more
     }
+
+@router.get("/sources/list")
+async def get_sources(db: Session = Depends(get_db)):
+    """获取所有新闻来源"""
+    sources = NewsService.get_sources(db)
+    return {"sources": sources}
+
+@router.get("/categories/list")
+async def get_categories(db: Session = Depends(get_db)):
+    """获取所有分类"""
+    categories = NewsService.get_categories(db)
+    return {"categories": categories}
+
+@router.get("/{news_id}", response_model=NewsResponse)
+async def get_news(news_id: int, db: Session = Depends(get_db)):
+    """获取单条新闻详情"""
+    news = NewsService.get_news_by_id(db, news_id)
+    if not news:
+        raise HTTPException(status_code=404, detail="News not found")
+    return news.to_dict()
+
+@router.post("", response_model=NewsResponse)
+async def create_news(news_data: NewsCreate, db: Session = Depends(get_db)):
+    """创建新闻（手动添加）"""
+    news = NewsService.create_news(db, news_data)
+    return news.to_dict()
+
+@router.put("/{news_id}", response_model=NewsResponse)
+async def update_news(
+    news_id: int, 
+    news_data: NewsUpdate, 
+    db: Session = Depends(get_db)
+):
+    """更新新闻"""
+    news = NewsService.update_news(db, news_id, news_data)
+    if not news:
+        raise HTTPException(status_code=404, detail="News not found")
+    return news.to_dict()
+
+@router.delete("/{news_id}")
+async def delete_news(news_id: int, db: Session = Depends(get_db)):
+    """删除新闻"""
+    success = NewsService.delete_news(db, news_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="News not found")
+    return {"message": "News deleted successfully"}
 
 
 @router.get("/{news_id}/detail", response_model=NewsDetail)

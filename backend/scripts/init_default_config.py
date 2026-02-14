@@ -64,7 +64,7 @@ def init_default_config():
             ai_weight=0.6,
             rule_weight=0.4,
             min_score_threshold=60.0,
-            default_llm_model="gpt-4o",
+            default_llm_model="deepseek-chat",
             enable_ai_summary=True,
             enable_ai_classification=True,
             enable_ai_scoring=True,

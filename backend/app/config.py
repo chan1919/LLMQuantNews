@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = True
     
     # Default LLM
-    DEFAULT_LLM_MODEL: str = "gpt-4o"
+    DEFAULT_LLM_MODEL: str = "deepseek-chat"
     
     # Crawler
     CRAWLER_INTERVAL: int = 300  # 5 minutes
