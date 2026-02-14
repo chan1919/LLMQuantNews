@@ -67,15 +67,70 @@ def crawl_single_source(self, config_id: int):
                 db.add(news)
                 db.flush()  # 获取ID
                 
-                # AI处理（如果启用）
+                # AI处理（直接调用）
                 ai_scores = None
-                if settings.OPENAI_API_KEY or settings.DEEPSEEK_API_KEY:
+                try:
+                    # 使用asyncio运行异步AI处理
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
                     try:
-                        ai_result = process_news_with_ai(news_item=news)
-                        if ai_result.get('status') == 'success':
-                            ai_scores = ai_result.get('result', {})
-                    except Exception as e:
-                        print(f"AI处理失败: {e}")
+                        ai_result = loop.run_until_complete(
+                            llm_engine.process_news(
+                                news.title,
+                                news.content or ''
+                            )
+                        )
+                    finally:
+                        loop.close()
+                    
+                    # 更新新闻记录
+                    if 'summary' in ai_result:
+                        news.summary = ai_result['summary']
+                    if 'categories' in ai_result:
+                        news.categories = ai_result['categories']
+                    if 'keywords' in ai_result:
+                        news.keywords = ai_result['keywords']
+                    if 'sentiment' in ai_result:
+                        news.sentiment = ai_result['sentiment']
+                    if 'scores' in ai_result:
+                        scores = ai_result['scores']
+                        news.ai_score = sum(scores.values()) / len(scores) if scores else 50
+                        news.market_impact = scores.get('market_impact', 50)
+                        news.industry_relevance = scores.get('industry_relevance', 50)
+                        news.novelty_score = scores.get('novelty_score', 50)
+                        news.urgency = scores.get('urgency', 50)
+                    
+                    # 更新分析状态
+                    news.is_analyzed = True
+                    news.analyzed_at = datetime.utcnow()
+                    news.analysis_type = 'full'
+                    
+                    # 记录成本
+                    if ai_result.get('cost'):
+                        cost_data = ai_result['cost']
+                        cost = llm_engine.calculate_cost(
+                            ai_result.get('model_used', 'deepseek-chat'),
+                            cost_data.get('input_tokens', 0),
+                            cost_data.get('output_tokens', 0)
+                        )
+                        from app.services.news_service import CostService
+                        CostService.record_cost(
+                            db,
+                            model=ai_result.get('model_used', 'deepseek-chat'),
+                            provider='openai',
+                            prompt_tokens=cost_data.get('input_tokens', 0),
+                            completion_tokens=cost_data.get('output_tokens', 0),
+                            cost_usd=cost['cost_usd'],
+                            cost_cny=cost['cost_cny'],
+                            request_type='news_analysis',
+                            news_id=news.id
+                        )
+                    
+                    print(f"AI处理成功: {news.title}")
+                    
+                except Exception as e:
+                    print(f"AI处理失败: {e}")
                 
                 # 评分计算
                 from app.scoring.engine import NewsScorer
@@ -245,29 +300,43 @@ def process_news_with_ai(db_session=None, news_item=None):
         return {"status": "skipped", "reason": "No news item"}
     
     try:
-        # 准备新闻数据
-        news_data = {
-            'title': news_item.title,
-            'content': news_item.content or '',
-            'source': news_item.source,
-            'categories': news_item.categories or []
-        }
-        
         # 使用LLM引擎处理
         if hasattr(llm_engine, 'process_news'):
-            result = llm_engine.process_news(news_data)
+            # 使用asyncio运行异步方法
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                result = loop.run_until_complete(
+                    llm_engine.process_news(
+                        news_item.title,
+                        news_item.content or ''
+                    )
+                )
+            finally:
+                loop.close()
             
             # 更新新闻记录
-            if 'ai_score' in result:
-                news_item.ai_score = result['ai_score']
             if 'summary' in result:
                 news_item.summary = result['summary']
             if 'categories' in result:
                 news_item.categories = result['categories']
-            if 'sentiment' in result:
-                news_item.sentiment = result['sentiment']
             if 'keywords' in result:
                 news_item.keywords = result['keywords']
+            if 'sentiment' in result:
+                news_item.sentiment = result['sentiment']
+            if 'scores' in result:
+                scores = result['scores']
+                news_item.ai_score = sum(scores.values()) / len(scores) if scores else 50
+                news_item.market_impact = scores.get('market_impact', 50)
+                news_item.industry_relevance = scores.get('industry_relevance', 50)
+                news_item.novelty_score = scores.get('novelty_score', 50)
+                news_item.urgency = scores.get('urgency', 50)
+            
+            # 更新分析状态
+            news_item.is_analyzed = True
+            news_item.analyzed_at = datetime.utcnow()
+            news_item.analysis_type = 'full'
             
             return {"status": "success", "result": result}
         

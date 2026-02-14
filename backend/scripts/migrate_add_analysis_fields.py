@@ -8,20 +8,23 @@ import os
 from datetime import datetime
 
 # 数据库路径
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'llmquant.db')
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'data', 'llmquant.db')
 
 def migrate_database():
     """
     执行数据库迁移，添加分析状态相关字段
     """
+    conn = None
     try:
         # 连接到数据库
+        print(f"尝试连接到数据库: {DB_PATH}")
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # 检查is_analyzed字段是否存在
         cursor.execute("PRAGMA table_info(news)")
         columns = [column[1] for column in cursor.fetchall()]
+        print(f"当前表结构: {columns}")
         
         # 添加is_analyzed字段
         if 'is_analyzed' not in columns:
@@ -53,6 +56,7 @@ def migrate_database():
     finally:
         if conn:
             conn.close()
+            print("数据库连接已关闭")
 
 def update_existing_records():
     """

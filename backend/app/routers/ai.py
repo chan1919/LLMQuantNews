@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import AITaskRequest, AITaskResponse
 from app.llm import llm_engine
-from app.services.news_service import CostService
+from app.services.news_service import CostService, NewsService
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -68,5 +68,15 @@ async def get_vapi_models(refresh: bool = False):
     try:
         models = await llm_engine.get_vapi_models(refresh)
         return {"models": models}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze-unanalyzed")
+async def analyze_unanalyzed_news(limit: int = 10, db: Session = Depends(get_db)):
+    """分析未分析的新闻，使用V-API进行简要分析"""
+    try:
+        result = await NewsService.analyze_unanalyzed_news(db, limit)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

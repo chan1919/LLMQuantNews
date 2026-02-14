@@ -4,8 +4,8 @@ from app.config import settings
 
 celery_app = Celery(
     "llmquant",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker="memory://",  # 使用内存消息代理
+    backend="memory://",  # 使用内存结果后端
     include=["app.services.tasks"]
 )
 

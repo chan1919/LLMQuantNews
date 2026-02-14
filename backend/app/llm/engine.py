@@ -30,7 +30,7 @@ class LLMEngine:
         """配置V-API"""
         if settings.VAPI_API_KEY:
             # 设置LiteLLM的V-API配置
-            litellm.api_base = settings.VAPI_BASE_URL or "https://api.vveai.com"
+            litellm.api_base = f"{settings.VAPI_BASE_URL or 'https://api.vveai.com'}/v1"
             litellm.api_key = settings.VAPI_API_KEY
     
     def _setup_api_keys(self):
@@ -303,6 +303,75 @@ class LLMEngine:
             'input_tokens': response.usage.prompt_tokens,
             'output_tokens': response.usage.completion_tokens,
         }
+    
+    async def brief_analyze_with_vapi(self, title: str, content: str, model: str = "gpt-4o-mini") -> Dict[str, Any]:
+        """
+        使用V-API进行简要分析
+        
+        Args:
+            title: 新闻标题
+            content: 新闻内容
+            model: 使用的V-API模型
+            
+        Returns:
+            简要分析结果
+        """
+        prompt = f"""请对以下新闻进行简要分析，返回JSON格式：
+
+标题: {title}
+
+内容: {content[:1000]}...
+
+分析要求：
+1. 生成简短摘要（50字以内）
+2. 提取3-5个关键词
+3. 分析情感倾向（positive/negative/neutral）
+4. 给出简要分类（1-2个类别）
+5. 评估新闻重要性（0-100分）
+
+返回格式：
+{{
+    "summary": "简短摘要",
+    "keywords": ["关键词1", "关键词2", "关键词3"],
+    "sentiment": "positive/negative/neutral",
+    "categories": ["分类1", "分类2"],
+    "importance": 85
+}}"""
+        
+        try:
+            # 直接使用V-API模型
+            response = await litellm.acompletion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=300,
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            
+            return {
+                'summary': result.get('summary', ''),
+                'keywords': result.get('keywords', []),
+                'sentiment': result.get('sentiment', 'neutral'),
+                'categories': result.get('categories', []),
+                'importance': result.get('importance', 50),
+                'input_tokens': response.usage.prompt_tokens,
+                'output_tokens': response.usage.completion_tokens,
+                'model_used': model,
+            }
+        except Exception as e:
+            print(f"V-API简要分析失败: {e}")
+            return {
+                'summary': '',
+                'keywords': [],
+                'sentiment': 'neutral',
+                'categories': [],
+                'importance': 50,
+                'input_tokens': 0,
+                'output_tokens': 0,
+                'model_used': model,
+                'error': str(e),
+            }
     
     async def generate_tags(self, title: str, content: str, model: Optional[str] = None) -> Dict[str, Any]:
         """生成新闻标签"""

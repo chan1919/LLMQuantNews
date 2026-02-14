@@ -66,37 +66,59 @@ class NewsService:
         # 生成标签
         if db_news.title and db_news.content:
             try:
-                tag_result = await llm_engine.generate_tags(
+                # 使用LLM处理新闻
+                ai_result = await llm_engine.process_news(
                     db_news.title,
                     db_news.content
                 )
                 
-                if tag_result and tag_result.get('tags'):
-                    db_news.tags = tag_result['tags']
-                    db_news.tag_generated_at = datetime.utcnow()
-                    db.commit()
-                    db.refresh(db_news)
-                    
+                # 更新新闻记录
+                if 'summary' in ai_result:
+                    db_news.summary = ai_result['summary']
+                if 'categories' in ai_result:
+                    db_news.categories = ai_result['categories']
+                if 'keywords' in ai_result:
+                    db_news.keywords = ai_result['keywords']
+                if 'sentiment' in ai_result:
+                    db_news.sentiment = ai_result['sentiment']
+                if 'scores' in ai_result:
+                    scores = ai_result['scores']
+                    db_news.ai_score = sum(scores.values()) / len(scores) if scores else 50
+                    db_news.market_impact = scores.get('market_impact', 50)
+                    db_news.industry_relevance = scores.get('industry_relevance', 50)
+                    db_news.novelty_score = scores.get('novelty_score', 50)
+                    db_news.urgency = scores.get('urgency', 50)
+                
+                # 更新分析状态
+                db_news.is_analyzed = True
+                db_news.analyzed_at = datetime.utcnow()
+                db_news.analysis_type = 'full'
+                
                 # 记录成本
-                if tag_result.get('input_tokens') and tag_result.get('output_tokens'):
+                if ai_result.get('cost'):
+                    cost_data = ai_result['cost']
                     cost = llm_engine.calculate_cost(
-                        tag_result.get('model_used', 'gpt-4o-mini'),
-                        tag_result['input_tokens'],
-                        tag_result['output_tokens']
+                        ai_result.get('model_used', 'deepseek-chat'),
+                        cost_data.get('input_tokens', 0),
+                        cost_data.get('output_tokens', 0)
                     )
                     CostService.record_cost(
                         db,
-                        model=tag_result.get('model_used', 'gpt-4o-mini'),
+                        model=ai_result.get('model_used', 'deepseek-chat'),
                         provider='openai',
-                        prompt_tokens=tag_result['input_tokens'],
-                        completion_tokens=tag_result['output_tokens'],
+                        prompt_tokens=cost_data.get('input_tokens', 0),
+                        completion_tokens=cost_data.get('output_tokens', 0),
                         cost_usd=cost['cost_usd'],
                         cost_cny=cost['cost_cny'],
-                        request_type='tag_generation',
+                        request_type='news_analysis',
                         news_id=db_news.id
                     )
+                
+                db.commit()
+                db.refresh(db_news)
+                    
             except Exception as e:
-                print(f"生成标签失败: {e}")
+                print(f"AI处理失败: {e}")
         
         return db_news
     
@@ -160,7 +182,7 @@ class NewsService:
                 'summary': news.summary,
                 'source': news.source,
                 'published_at': news.published_at.isoformat() if news.published_at else None,
-                'tags': news.tags,
+                'tags': news.keywords,  # 使用keywords代替tags
                 'final_score': news.final_score
             }
             for news in news_list
@@ -180,11 +202,12 @@ class NewsService:
     @staticmethod
     def get_all_tags(db: Session) -> List[str]:
         """获取所有标签"""
-        all_news = db.query(News.tags).all()
+        # 从keywords字段获取标签
+        all_news = db.query(News.keywords).all()
         tags_set = set()
-        for tags in all_news:
-            if tags[0]:
-                tags_set.update(tags[0].keys())
+        for keywords in all_news:
+            if keywords[0]:
+                tags_set.update(keywords[0])
         return sorted(list(tags_set))
     
     @staticmethod
@@ -207,17 +230,118 @@ class NewsService:
             return None
         
         try:
-            tag_result = await llm_engine.generate_tags(news.title, news.content)
-            if tag_result and tag_result.get('tags'):
-                news.tags = tag_result['tags']
-                news.tag_generated_at = datetime.utcnow()
+            # 使用LLM处理新闻以更新标签
+            ai_result = await llm_engine.process_news(
+                news.title,
+                news.content,
+                tasks=['keywords']  # 只生成关键词
+            )
+            
+            if ai_result and 'keywords' in ai_result:
+                news.keywords = ai_result['keywords']
+                news.is_analyzed = True
+                news.analyzed_at = datetime.utcnow()
                 db.commit()
                 db.refresh(news)
-                return {'tags': news.tags}
+                return {'tags': news.keywords}
         except Exception as e:
             print(f"重新生成标签失败: {e}")
         
         return None
+    
+    @staticmethod
+    async def analyze_unanalyzed_news(db: Session, limit: int = 10) -> Dict[str, Any]:
+        """
+        分析未分析的新闻，使用V-API进行简要分析
+        
+        Args:
+            db: 数据库会话
+            limit: 每次处理的新闻数量
+            
+        Returns:
+            分析结果统计
+        """
+        # 获取未分析的新闻
+        unanalyzed_news = db.query(News).filter(News.is_analyzed == False).limit(limit).all()
+        
+        analyzed_count = 0
+        failed_count = 0
+        
+        for news in unanalyzed_news:
+            if not news.title or not news.content:
+                # 标记为已分析（无内容）
+                news.is_analyzed = True
+                news.analysis_type = 'none'
+                db.commit()
+                failed_count += 1
+                continue
+            
+            try:
+                # 使用V-API进行简要分析
+                analysis_result = await llm_engine.brief_analyze_with_vapi(
+                    title=news.title,
+                    content=news.content
+                )
+                
+                # 更新新闻分析结果
+                news.summary = analysis_result.get('summary', '')
+                news.keywords = analysis_result.get('keywords', [])
+                news.sentiment = analysis_result.get('sentiment', 'neutral')
+                news.categories = analysis_result.get('categories', [])
+                news.ai_score = analysis_result.get('importance', 50)
+                news.final_score = analysis_result.get('importance', 50)
+                
+                # 标记为已分析
+                news.is_analyzed = True
+                news.analyzed_at = datetime.utcnow()
+                news.analysis_type = 'vapi'
+                news.llm_model_used = analysis_result.get('model_used', 'vapi')
+                
+                # 记录成本
+                if analysis_result.get('input_tokens') and analysis_result.get('output_tokens'):
+                    cost = llm_engine.calculate_cost(
+                        analysis_result.get('model_used', 'vapi'),
+                        analysis_result['input_tokens'],
+                        analysis_result['output_tokens']
+                    )
+                    CostService.record_cost(
+                        db,
+                        model=analysis_result.get('model_used', 'vapi'),
+                        provider='vapi',
+                        prompt_tokens=analysis_result['input_tokens'],
+                        completion_tokens=analysis_result['output_tokens'],
+                        cost_usd=cost['cost_usd'],
+                        cost_cny=cost['cost_cny'],
+                        request_type='brief_analysis',
+                        news_id=news.id
+                    )
+                
+                db.commit()
+                analyzed_count += 1
+                
+            except Exception as e:
+                print(f"分析新闻失败 (ID: {news.id}): {e}")
+                failed_count += 1
+                db.rollback()
+        
+        return {
+            'total_processed': len(unanalyzed_news),
+            'analyzed': analyzed_count,
+            'failed': failed_count
+        }
+    
+    @staticmethod
+    def get_unanalyzed_news_count(db: Session) -> int:
+        """
+        获取未分析的新闻数量
+        
+        Args:
+            db: 数据库会话
+            
+        Returns:
+            未分析的新闻数量
+        """
+        return db.query(func.count(News.id)).filter(News.is_analyzed == False).scalar() or 0
 
 class ConfigService:
     """配置服务"""
