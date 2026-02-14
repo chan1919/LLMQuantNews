@@ -10,7 +10,10 @@ from app.schemas import (
 )
 from app.services.news_service import ConfigService, CrawlerService
 from app.crawler import crawler_manager
-from app.tests.crawler.test_crawler_validity import CrawlerValidityTester
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from tests.crawler.test_crawler_validity import CrawlerValidityTester
 
 router = APIRouter(prefix="/config", tags=["config"])
 

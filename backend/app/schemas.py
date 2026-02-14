@@ -105,6 +105,10 @@ class CrawlerConfigResponse(CrawlerConfigBase):
     total_crawled: int
     success_count: int
     error_count: int
+    # 有效性状态
+    is_valid: Optional[bool] = None
+    last_test_at: Optional[datetime] = None
+    test_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

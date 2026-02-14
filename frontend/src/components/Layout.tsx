@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, createContext, useContext } from 'react'
 import {
   Box,
   Drawer,
@@ -12,6 +12,8 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Snackbar,
+  Alert,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -31,17 +33,96 @@ const menuItems = [
   { text: '成本统计', icon: <MoneyIcon />, path: '/costs' },
 ]
 
+// 创建 WebSocket 上下文
+interface WebSocketContextType {
+  ws: WebSocket | null
+  isConnected: boolean
+  latestData: any
+  sendMessage: (message: any) => void
+}
+
+const WebSocketContext = createContext<WebSocketContextType>({
+  ws: null,
+  isConnected: false,
+  latestData: null,
+  sendMessage: () => {},
+})
+
+// 自定义 Hook，用于使用 WebSocket 上下文
+export const useWebSocket = () => useContext(WebSocketContext)
+
 interface LayoutProps {
   children: React.ReactNode
 }
 
 export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [ws, setWs] = useState<WebSocket | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [latestData, setLatestData] = useState<any>(null)
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
 
+  // 处理 WebSocket 连接
+  useEffect(() => {
+    // 创建 WebSocket 连接
+    const socket = new WebSocket('ws://localhost:8000/ws')
+    
+    // 连接打开时
+    socket.onopen = () => {
+      console.log('WebSocket connected')
+      setIsConnected(true)
+      setNotification({ message: '实时数据连接已建立', type: 'success' })
+    }
+    
+    // 接收消息时
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+        console.log('Received message:', message)
+        setLatestData(message)
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error)
+      }
+    }
+    
+    // 连接关闭时
+    socket.onclose = () => {
+      console.log('WebSocket disconnected')
+      setIsConnected(false)
+      setNotification({ message: '实时数据连接已断开', type: 'warning' })
+    }
+    
+    // 连接错误时
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error)
+      setNotification({ message: '实时数据连接出错', type: 'error' })
+    }
+    
+    setWs(socket)
+    
+    // 清理函数
+    return () => {
+      socket.close()
+    }
+  }, [])
+
+  // 发送消息的函数
+  const sendMessage = (message: any) => {
+    if (ws && isConnected) {
+      ws.send(JSON.stringify(message))
+    }
+  }
+
+  // 处理抽屉切换
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
+  }
+
+  // 处理通知关闭
+  const handleNotificationClose = () => {
+    setNotification(null)
   }
 
   const drawer = (
@@ -69,65 +150,88 @@ export default function Layout({ children }: LayoutProps) {
   )
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+    <WebSocketContext.Provider value={{ ws, isConnected, latestData, sendMessage }}>
+      <Box sx={{ display: 'flex' }}>
+        <AppBar
+          position="fixed"
+          sx={{
+            width: { sm: `calc(100% - ${drawerWidth}px)` },
+            ml: { sm: `${drawerWidth}px` },
+          }}
+        >
+          <Toolbar>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap component="div">
+              AI新闻量化平台
+            </Typography>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ mr: 2 }}>
+                {isConnected ? '实时连接: 已连接' : '实时连接: 未连接'}
+              </Typography>
+            </Box>
+          </Toolbar>
+        </AppBar>
+        <Box
+          component="nav"
+          sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        >
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{
+              keepMounted: true,
+            }}
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
           >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            AI新闻量化平台
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
+            {drawer}
+          </Drawer>
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            }}
+            open
+          >
+            {drawer}
+          </Drawer>
+        </Box>
+        <Box
+          component="main"
+          sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
         >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
+          <Toolbar />
+          {children}
+        </Box>
       </Box>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={3000}
+        onClose={handleNotificationClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Toolbar />
-        {children}
-      </Box>
-    </Box>
+        {notification && (
+          <Alert
+            onClose={handleNotificationClose}
+            severity={notification.type}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        )}
+      </Snackbar>
+    </WebSocketContext.Provider>
   )
 }

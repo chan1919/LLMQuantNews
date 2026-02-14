@@ -18,6 +18,10 @@ import {
   CardContent,
   Select,
   InputLabel,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import {
   TrendingUp as BullishIcon,
@@ -25,6 +29,10 @@ import {
   WbSunny as SunIcon,
   Globe as GlobeIcon,
   DeveloperMode as TechIcon,
+  CheckCircle as ValidIcon,
+  Cancel as InvalidIcon,
+  HelpOutline as UnknownIcon,
+  Refresh as TestIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import type { UserConfig, TimeFrame } from '../types';
@@ -66,10 +74,22 @@ const updateCrawler = async (crawlerId: number, data: any): Promise<any> => {
   return updated;
 };
 
+const testCrawler = async (crawlerId: number): Promise<any> => {
+  const { data } = await axios.post(`${API_URL}/config/crawlers/${crawlerId}/test`);
+  return data;
+};
+
+const testAllCrawlers = async (): Promise<any> => {
+  const { data } = await axios.post(`${API_URL}/config/crawlers/test-all`);
+  return data;
+};
+
 export default function Config() {
   const queryClient = useQueryClient();
   const [tabValue, setTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [testingCrawlerId, setTestingCrawlerId] = useState<number | null>(null);
+  const [testingAll, setTestingAll] = useState(false);
 
   const { data: configData, isLoading } = useQuery({
     queryKey: ['userConfig'],
@@ -92,6 +112,39 @@ export default function Config() {
     },
   });
 
+  const testCrawlerMutation = useMutation({
+    mutationFn: testCrawler,
+    onMutate: (crawlerId) => {
+      setTestingCrawlerId(crawlerId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['crawlers'] });
+      setSnackbar({ open: true, message: `测试完成: ${data.name} - ${data.is_valid ? '有效' : '无效'}`, severity: data.is_valid ? 'success' : 'error' });
+      setTestingCrawlerId(null);
+    },
+    onError: () => {
+      setSnackbar({ open: true, message: '测试失败', severity: 'error' });
+      setTestingCrawlerId(null);
+    },
+  });
+
+  const testAllCrawlersMutation = useMutation({
+    mutationFn: testAllCrawlers,
+    onMutate: () => {
+      setTestingAll(true);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['crawlers'] });
+      const validCount = data.results.filter((r: any) => r.is_valid).length;
+      setSnackbar({ open: true, message: `批量测试完成: ${validCount}/${data.total} 个信息源有效`, severity: 'success' });
+      setTestingAll(false);
+    },
+    onError: () => {
+      setSnackbar({ open: true, message: '批量测试失败', severity: 'error' });
+      setTestingAll(false);
+    },
+  });
+
   const mutation = useMutation({
     mutationFn: saveConfig,
     onSuccess: () => {
@@ -105,6 +158,24 @@ export default function Config() {
 
   const handleToggleCrawler = (crawlerId: number, isActive: boolean) => {
     crawlerMutation.mutate({ id: crawlerId, data: { is_active: isActive } });
+  };
+
+  const handleTestCrawler = (crawlerId: number) => {
+    testCrawlerMutation.mutate(crawlerId);
+  };
+
+  const handleTestAllCrawlers = () => {
+    testAllCrawlersMutation.mutate();
+  };
+
+  const getValidityStatus = (crawler: any) => {
+    if (crawler.is_valid === true) {
+      return { color: 'success', icon: ValidIcon, label: '有效' };
+    } else if (crawler.is_valid === false) {
+      return { color: 'error', icon: InvalidIcon, label: '无效' };
+    } else {
+      return { color: 'warning', icon: UnknownIcon, label: '未测试' };
+    }
   };
 
   const [keywords, setKeywords] = useState<Record<string, number>>({});
@@ -558,68 +629,127 @@ export default function Config() {
             <Typography variant="subtitle1" fontWeight="bold">
               信息源列表
             </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<TestIcon />}
+              onClick={handleTestAllCrawlers}
+              disabled={testingAll}
+            >
+              {testingAll ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  测试中...
+                </Box>
+              ) : (
+                '批量测试'
+              )}
+            </Button>
           </Box>
           
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {crawlers.map((crawler) => (
-              <Card key={crawler.id} variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {crawler.name}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {crawler.source_url}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Chip
-                        label={crawler.crawler_type}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={crawler.is_active}
-                            onChange={(e) => handleToggleCrawler(crawler.id, e.target.checked)}
-                            color="primary"
+            {crawlers.map((crawler) => {
+              const validityStatus = getValidityStatus(crawler);
+              const IconComponent = validityStatus.icon;
+              
+              return (
+                <Card key={crawler.id} variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {crawler.name}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {crawler.source_url}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Chip
+                          label={crawler.crawler_type}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Tooltip title={crawler.test_message || validityStatus.label}>
+                          <Chip
+                            icon={<IconComponent fontSize="small" />}
+                            label={validityStatus.label}
+                            size="small"
+                            color={validityStatus.color as any}
                           />
-                        }
-                        label={crawler.is_active ? '启用' : '禁用'}
-                      />
+                        </Tooltip>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<TestIcon />}
+                          onClick={() => handleTestCrawler(crawler.id)}
+                          disabled={testingCrawlerId === crawler.id}
+                        >
+                          {testingCrawlerId === crawler.id ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            '测试'
+                          )}
+                        </Button>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={crawler.is_active}
+                              onChange={(e) => handleToggleCrawler(crawler.id, e.target.checked)}
+                              color="primary"
+                            />
+                          }
+                          label={crawler.is_active ? '启用' : '禁用'}
+                        />
+                      </Box>
                     </Box>
-                  </Box>
-                  
-                  <Grid container spacing={2} sx={{ mt: 2 }}>
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="body2" color="textSecondary">
-                        抓取间隔: {crawler.interval_seconds}秒
-                      </Typography>
+                    
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="textSecondary">
+                          抓取间隔: {crawler.interval_seconds}秒
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="textSecondary">
+                          优先级: {crawler.priority}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={4}>
+                        <Typography variant="body2" color="textSecondary">
+                          抓取次数: {crawler.total_crawled}
+                        </Typography>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="body2" color="textSecondary">
-                        优先级: {crawler.priority}
-                      </Typography>
+                    
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      {crawler.last_test_at && (
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="textSecondary">
+                            最后测试: {new Date(crawler.last_test_at).toLocaleString()}
+                          </Typography>
+                        </Grid>
+                      )}
+                      {crawler.last_crawled_at && (
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="textSecondary">
+                            最后抓取: {new Date(crawler.last_crawled_at).toLocaleString()}
+                          </Typography>
+                        </Grid>
+                      )}
                     </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <Typography variant="body2" color="textSecondary">
-                        抓取次数: {crawler.total_crawled}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                  
-                  {crawler.last_crawled_at && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="textSecondary">
-                        最后抓取: {new Date(crawler.last_crawled_at).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+                    
+                    {crawler.test_message && (
+                      <Box sx={{ mt: 2, p: 1, bgcolor: crawler.is_valid ? '#f0fdf4' : '#fef2f2', borderRadius: 1 }}>
+                        <Typography variant="body2" color={crawler.is_valid ? 'success.main' : 'error.main'}>
+                          {crawler.test_message}
+                        </Typography>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </Box>
           
           {crawlers.length === 0 && (
