@@ -160,8 +160,9 @@ class LLMEngine:
 
 请直接返回摘要内容，不要添加任何其他文字。"""
         
+        # 使用V-API模型
         response = await litellm.acompletion(
-            model=self.AVAILABLE_MODELS[model]['model'],
+            model="openai/gpt-4o-mini",  # 使用完整的模型路径
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=200,
@@ -183,8 +184,9 @@ class LLMEngine:
 
 返回格式：{{"categories": ["分类1", "分类2"]}}"""
         
+        # 使用V-API模型
         response = await litellm.acompletion(
-            model=self.AVAILABLE_MODELS[model]['model'],
+            model="openai/gpt-4o-mini",  # 使用完整的模型路径
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=100,
@@ -221,8 +223,9 @@ class LLMEngine:
     "urgency": 75
 }}"""
         
+        # 使用V-API模型
         response = await litellm.acompletion(
-            model=self.AVAILABLE_MODELS[model]['model'],
+            model="openai/gpt-4o-mini",  # 使用完整的模型路径
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=150,
@@ -258,8 +261,9 @@ class LLMEngine:
 
 返回格式：{{"keywords": ["关键词1", "关键词2", ...]}}"""
         
+        # 使用V-API模型
         response = await litellm.acompletion(
-            model=self.AVAILABLE_MODELS[model]['model'],
+            model="openai/gpt-4o-mini",  # 使用完整的模型路径
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=100,
@@ -285,8 +289,9 @@ class LLMEngine:
 
 返回格式：{{"sentiment": "positive/negative/neutral"}}"""
         
+        # 使用V-API模型
         response = await litellm.acompletion(
-            model=self.AVAILABLE_MODELS[model]['model'],
+            model="openai/gpt-4o-mini",  # 使用完整的模型路径
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=50,
