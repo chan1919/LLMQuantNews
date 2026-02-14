@@ -12,24 +12,22 @@ import {
   FormControlLabel,
   Chip,
   Slider,
-  Divider,
   Grid,
   MenuItem,
   Card,
   CardContent,
   Select,
-  FormControl,
   InputLabel,
-  Alert,
-  Snackbar,
 } from '@mui/material';
 import {
   TrendingUp as BullishIcon,
   TrendingDown as BearishIcon,
-  TrendingFlat as NeutralIcon,
+  WbSunny as SunIcon,
+  Globe as GlobeIcon,
+  DeveloperMode as TechIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
-import type { UserConfig, PositionBias, TimeFrame } from '../types';
+import type { UserConfig, TimeFrame } from '../types';
 
 const API_URL = '/api/v1';
 
@@ -58,6 +56,16 @@ const saveConfig = async (config: Partial<UserConfig>): Promise<UserConfig> => {
   return data;
 };
 
+const fetchCrawlers = async (): Promise<any[]> => {
+  const { data } = await axios.get(`${API_URL}/config/crawlers`);
+  return data;
+};
+
+const updateCrawler = async (crawlerId: number, data: any): Promise<any> => {
+  const { data: updated } = await axios.put(`${API_URL}/config/crawlers/${crawlerId}`, data);
+  return updated;
+};
+
 export default function Config() {
   const queryClient = useQueryClient();
   const [tabValue, setTabValue] = useState(0);
@@ -66,6 +74,22 @@ export default function Config() {
   const { data: configData, isLoading } = useQuery({
     queryKey: ['userConfig'],
     queryFn: fetchConfig,
+  });
+
+  const { data: crawlers = [], isLoading: isLoadingCrawlers } = useQuery({
+    queryKey: ['crawlers'],
+    queryFn: fetchCrawlers,
+  });
+
+  const crawlerMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => updateCrawler(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crawlers'] });
+      setSnackbar({ open: true, message: '配置更新成功', severity: 'success' });
+    },
+    onError: () => {
+      setSnackbar({ open: true, message: '配置更新失败', severity: 'error' });
+    },
   });
 
   const mutation = useMutation({
@@ -78,6 +102,10 @@ export default function Config() {
       setSnackbar({ open: true, message: '保存失败', severity: 'error' });
     },
   });
+
+  const handleToggleCrawler = (crawlerId: number, isActive: boolean) => {
+    crawlerMutation.mutate({ id: crawlerId, data: { is_active: isActive } });
+  };
 
   const [keywords, setKeywords] = useState<Record<string, number>>({});
   const [industries, setIndustries] = useState<string[]>([]);
@@ -522,9 +550,85 @@ export default function Config() {
           <Typography variant="h6" gutterBottom>
             爬虫配置
           </Typography>
-          <Typography color="textSecondary">
-            爬虫配置功能开发中...
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            管理信息源的启用状态和配置
           </Typography>
+          
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              信息源列表
+            </Typography>
+          </Box>
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {crawlers.map((crawler) => (
+              <Card key={crawler.id} variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {crawler.name}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {crawler.source_url}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Chip
+                        label={crawler.crawler_type}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={crawler.is_active}
+                            onChange={(e) => handleToggleCrawler(crawler.id, e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={crawler.is_active ? '启用' : '禁用'}
+                      />
+                    </Box>
+                  </Box>
+                  
+                  <Grid container spacing={2} sx={{ mt: 2 }}>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" color="textSecondary">
+                        抓取间隔: {crawler.interval_seconds}秒
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" color="textSecondary">
+                        优先级: {crawler.priority}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body2" color="textSecondary">
+                        抓取次数: {crawler.total_crawled}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                  
+                  {crawler.last_crawled_at && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body2" color="textSecondary">
+                        最后抓取: {new Date(crawler.last_crawled_at).toLocaleString()}
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+          
+          {crawlers.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="textSecondary">
+                暂无信息源配置
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         {/* 推送配置 */}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models import News, UserConfig
@@ -27,6 +27,7 @@ async def list_news(
     min_score: Optional[float] = Query(None, ge=0, le=100),
     max_score: Optional[float] = Query(None, ge=0, le=100),
     is_pushed: Optional[bool] = None,
+    date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """获取新闻列表"""
@@ -39,7 +40,40 @@ async def list_news(
         is_pushed=is_pushed
     )
     
-    news_list, total = NewsService.get_news_list(db, skip=skip, limit=limit, filters=filters)
+    # 构建查询
+    query = db.query(News)
+    
+    # 应用过滤条件
+    if source:
+        query = query.filter(News.source == source)
+    if keyword:
+        query = query.filter(News.title.ilike(f"%{keyword}%"))
+    if category:
+        query = query.filter(News.categories.contains([category]))
+    if min_score is not None:
+        query = query.filter(News.final_score >= min_score)
+    if max_score is not None:
+        query = query.filter(News.final_score <= max_score)
+    if is_pushed is not None:
+        query = query.filter(News.is_pushed == is_pushed)
+    if date:
+        # 解析日期并过滤
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0)
+            next_date = target_date + timedelta(days=1)
+            query = query.filter(
+                News.crawled_at >= target_date,
+                News.crawled_at < next_date
+            )
+        except ValueError:
+            # 日期格式错误，忽略日期过滤
+            pass
+    
+    # 计算总数
+    total = query.count()
+    
+    # 分页并排序
+    news_list = query.order_by(News.crawled_at.desc()).offset(skip).limit(limit).all()
     
     return {
         "items": [item.to_dict() for item in news_list],

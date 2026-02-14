@@ -59,7 +59,7 @@ class News(Base):
     
     # 成本记录
     cost_tracking_id = Column(Integer, ForeignKey('llm_costs.id'), nullable=True)
-    cost_record = relationship("LLMCost", back_populates="news_items")
+    cost_record = relationship("LLMCost", back_populates="news_items", foreign_keys=[cost_tracking_id])
     
     def to_dict(self):
         return {
@@ -210,11 +210,15 @@ class CrawlerConfig(Base):
             'interval_seconds': self.interval_seconds,
             'priority': self.priority,
             'custom_config': self.custom_config,
+            'custom_script': self.custom_script,
             'last_crawled_at': self.last_crawled_at.isoformat() if self.last_crawled_at else None,
             'last_success_at': self.last_success_at.isoformat() if self.last_success_at else None,
+            'last_error': self.last_error,
             'total_crawled': self.total_crawled,
             'success_count': self.success_count,
             'error_count': self.error_count,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
 class LLMCost(Base):
@@ -242,7 +246,7 @@ class LLMCost(Base):
     error_message = Column(Text)
     
     # 关联
-    news_items = relationship("News", back_populates="cost_record")
+    news_items = relationship("News", back_populates="cost_record", foreign_keys="News.cost_tracking_id")
     
     def to_dict(self):
         return {
