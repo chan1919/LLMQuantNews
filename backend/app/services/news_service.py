@@ -55,13 +55,57 @@ class NewsService:
         return db.query(News).filter(News.id == news_id).first()
     
     @staticmethod
-    def create_news(db: Session, news_data: NewsCreate) -> News:
-        """创建新闻记录"""
+    async def create_news_with_tags(db: Session, news_data: NewsCreate) -> News:
+        """创建新闻记录并生成标签"""
+        # 创建新闻记录
         db_news = News(**news_data.model_dump())
         db.add(db_news)
         db.commit()
         db.refresh(db_news)
+        
+        # 生成标签
+        if db_news.title and db_news.content:
+            try:
+                tag_result = await llm_engine.generate_tags(
+                    db_news.title,
+                    db_news.content
+                )
+                
+                if tag_result and tag_result.get('tags'):
+                    db_news.tags = tag_result['tags']
+                    db_news.tag_generated_at = datetime.utcnow()
+                    db.commit()
+                    db.refresh(db_news)
+                    
+                # 记录成本
+                if tag_result.get('input_tokens') and tag_result.get('output_tokens'):
+                    cost = llm_engine.calculate_cost(
+                        tag_result.get('model_used', 'gpt-4o-mini'),
+                        tag_result['input_tokens'],
+                        tag_result['output_tokens']
+                    )
+                    CostService.record_cost(
+                        db,
+                        model=tag_result.get('model_used', 'gpt-4o-mini'),
+                        provider='openai',
+                        prompt_tokens=tag_result['input_tokens'],
+                        completion_tokens=tag_result['output_tokens'],
+                        cost_usd=cost['cost_usd'],
+                        cost_cny=cost['cost_cny'],
+                        request_type='tag_generation',
+                        news_id=db_news.id
+                    )
+            except Exception as e:
+                print(f"生成标签失败: {e}")
+        
         return db_news
+    
+    @staticmethod
+    def create_news(db: Session, news_data: NewsCreate) -> News:
+        """创建新闻记录"""
+        # 同步版本，用于兼容现有代码
+        import asyncio
+        return asyncio.run(NewsService.create_news_with_tags(db, news_data))
     
     @staticmethod
     def update_news(db: Session, news_id: int, news_data: NewsUpdate) -> Optional[News]:
@@ -100,6 +144,80 @@ class NewsService:
             if cats[0]:
                 categories_set.update(cats[0])
         return sorted(list(categories_set))
+    
+    @staticmethod
+    async def search_news(db: Session, query: str, skip: int = 0, limit: int = 20) -> List[Dict[str, Any]]:
+        """基于自然语言查询搜索新闻"""
+        # 获取基础新闻列表
+        news_list = db.query(News).order_by(desc(News.published_at)).limit(100).all()
+        
+        # 转换为字典格式
+        news_items = [
+            {
+                'id': news.id,
+                'title': news.title,
+                'content': news.content,
+                'summary': news.summary,
+                'source': news.source,
+                'published_at': news.published_at.isoformat() if news.published_at else None,
+                'tags': news.tags,
+                'final_score': news.final_score
+            }
+            for news in news_list
+        ]
+        
+        # 使用AI进行搜索
+        if news_items:
+            try:
+                search_results = await llm_engine.search_news(query, news_items)
+                return search_results[skip:skip+limit]
+            except Exception as e:
+                print(f"搜索失败: {e}")
+        
+        # 失败时返回原始列表
+        return news_items[skip:skip+limit]
+    
+    @staticmethod
+    def get_all_tags(db: Session) -> List[str]:
+        """获取所有标签"""
+        all_news = db.query(News.tags).all()
+        tags_set = set()
+        for tags in all_news:
+            if tags[0]:
+                tags_set.update(tags[0].keys())
+        return sorted(list(tags_set))
+    
+    @staticmethod
+    def get_news_by_tags(db: Session, tags: List[str], skip: int = 0, limit: int = 20) -> List[News]:
+        """根据标签获取新闻"""
+        query = db.query(News)
+        
+        # 筛选包含指定标签的新闻
+        for tag in tags:
+            query = query.filter(News.tags.contains({tag: 0}))  # 只要包含标签即可
+        
+        news_list = query.order_by(desc(News.final_score), desc(News.published_at)).offset(skip).limit(limit).all()
+        return news_list
+    
+    @staticmethod
+    async def regenerate_tags(db: Session, news_id: int) -> Optional[Dict[str, Any]]:
+        """重新生成新闻标签"""
+        news = db.query(News).filter(News.id == news_id).first()
+        if not news or not news.title or not news.content:
+            return None
+        
+        try:
+            tag_result = await llm_engine.generate_tags(news.title, news.content)
+            if tag_result and tag_result.get('tags'):
+                news.tags = tag_result['tags']
+                news.tag_generated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(news)
+                return {'tags': news.tags}
+        except Exception as e:
+            print(f"重新生成标签失败: {e}")
+        
+        return None
 
 class ConfigService:
     """配置服务"""

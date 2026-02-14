@@ -61,6 +61,11 @@ class News(Base):
     cost_tracking_id = Column(Integer, ForeignKey('llm_costs.id'), nullable=True)
     cost_record = relationship("LLMCost", back_populates="news_items", foreign_keys=[cost_tracking_id])
     
+    # 分析状态
+    is_analyzed = Column(Boolean, default=False)  # 是否已分析
+    analyzed_at = Column(DateTime)  # 分析时间
+    analysis_type = Column(String(50))  # 分析类型: 'full', 'brief', 'vapi'
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -93,6 +98,9 @@ class News(Base):
             'is_pushed': self.is_pushed,
             'pushed_to': getattr(self, 'pushed_to', []),
             'llm_model_used': self.llm_model_used,
+            'is_analyzed': self.is_analyzed,
+            'analyzed_at': self.analyzed_at.isoformat() if self.analyzed_at else None,
+            'analysis_type': self.analysis_type,
         }
 
 class UserConfig(Base):

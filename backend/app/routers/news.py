@@ -94,6 +94,11 @@ async def list_news(
 async def get_news_feed(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    keywords: Optional[List[str]] = Query(None, description="关键词列表"),
+    categories: Optional[List[str]] = Query(None, description="分类列表"),
+    sources: Optional[List[str]] = Query(None, description="来源列表"),
+    minScore: Optional[float] = Query(None, ge=0, le=100, description="最低评分"),
+    maxScore: Optional[float] = Query(None, ge=0, le=100, description="最高评分"),
     db: Session = Depends(get_db)
 ):
     """获取信息流列表（按时间衰减排序）"""
@@ -102,8 +107,25 @@ async def get_news_feed(
     if not user_config:
         user_config = UserConfig()
     
+    # 构建查询
+    query = db.query(News)
+    
+    # 应用筛选条件
+    if keywords:
+        for keyword in keywords:
+            query = query.filter(News.title.ilike(f"%{keyword}%") | News.content.ilike(f"%{keyword}%"))
+    if categories:
+        for category in categories:
+            query = query.filter(News.categories.contains([category]))
+    if sources:
+        query = query.filter(News.source.in_(sources))
+    if minScore is not None:
+        query = query.filter(News.final_score >= minScore)
+    if maxScore is not None:
+        query = query.filter(News.final_score <= maxScore)
+    
     # 获取新闻列表
-    news_list = db.query(News).order_by(News.crawled_at.desc()).limit(200).all()
+    news_list = query.order_by(News.crawled_at.desc()).limit(200).all()
     
     # 计算时间衰减评分并排序
     feed_items = []
@@ -170,6 +192,55 @@ async def get_categories(db: Session = Depends(get_db)):
     """获取所有分类"""
     categories = NewsService.get_categories(db)
     return {"categories": categories}
+
+@router.get("/tags/list")
+async def get_tags(db: Session = Depends(get_db)):
+    """获取所有标签"""
+    tags = NewsService.get_all_tags(db)
+    return {"tags": tags}
+
+@router.get("/tags/search")
+async def search_by_tags(
+    tags: List[str] = Query(..., description="标签列表"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """基于标签搜索新闻"""
+    news_list = NewsService.get_news_by_tags(db, tags, skip, limit)
+    return {
+        "items": [item.to_dict() for item in news_list],
+        "total": len(news_list),
+        "page": skip // limit + 1 if limit > 0 else 1,
+        "page_size": limit
+    }
+
+@router.get("/search")
+async def search_news(
+    query: str = Query(..., description="搜索查询"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """基于自然语言查询搜索新闻"""
+    results = await NewsService.search_news(db, query, skip, limit)
+    return {
+        "items": results,
+        "total": len(results),
+        "page": skip // limit + 1 if limit > 0 else 1,
+        "page_size": limit
+    }
+
+@router.post("/{news_id}/regenerate-tags")
+async def regenerate_tags(
+    news_id: int,
+    db: Session = Depends(get_db)
+):
+    """重新生成新闻标签"""
+    result = await NewsService.regenerate_tags(db, news_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="News not found or failed to regenerate tags")
+    return result
 
 @router.get("/{news_id}", response_model=NewsResponse)
 async def get_news(news_id: int, db: Session = Depends(get_db)):
