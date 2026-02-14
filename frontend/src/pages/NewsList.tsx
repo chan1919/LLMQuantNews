@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
@@ -21,7 +21,15 @@ import {
   LinearProgress,
   Tabs,
   Tab,
+  Switch,
+  FormControlLabel,
+  Tooltip,
+  Badge,
 } from '@mui/material'
+import {
+  Refresh as RefreshIcon,
+  Notifications as NotificationsIcon,
+} from '@mui/icons-material'
 import axios from 'axios'
 import { useWebSocket } from '../components/Layout'
 
@@ -76,10 +84,13 @@ export default function NewsList() {
     date: '',
   })
   const [dates] = useState<Date[]>(generateRecentDates())
+  const [autoRefresh, setAutoRefresh] = useState(false) // 默认关闭自动刷新
+  const [newDataCount, setNewDataCount] = useState(0) // 新数据计数
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const queryClient = useQueryClient()
   const { latestData, isConnected } = useWebSocket()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['news', page, rowsPerPage, filters],
     queryFn: () =>
       fetchNews({
@@ -89,15 +100,48 @@ export default function NewsList() {
       }),
   })
 
-  // 当接收到 WebSocket 消息时，刷新数据
+  // 防抖刷新函数
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current)
+    }
+    
+    refreshTimeoutRef.current = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['news'] })
+      setNewDataCount(0)
+    }, 5000) // 5秒防抖
+  }, [queryClient])
+
+  // 手动刷新
+  const handleManualRefresh = () => {
+    refetch()
+    setNewDataCount(0)
+  }
+
+  // 当接收到 WebSocket 消息时，处理新数据通知
   useEffect(() => {
     if (latestData && latestData.type === 'dashboard_update') {
-      // 如果当前没有按日期过滤，或者过滤的是今天，则刷新数据
+      // 如果当前没有按日期过滤，或者过滤的是今天
       if (!filters.date || filters.date === formatDate(new Date())) {
-        queryClient.invalidateQueries({ queryKey: ['news'] })
+        if (autoRefresh) {
+          // 自动刷新模式：使用防抖刷新
+          debouncedRefresh()
+        } else {
+          // 手动模式：增加新数据计数
+          setNewDataCount(prev => prev + 1)
+        }
       }
     }
-  }, [latestData, filters.date, queryClient])
+  }, [latestData, filters.date, autoRefresh, debouncedRefresh])
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage)
@@ -133,9 +177,35 @@ export default function NewsList() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 2 }}>
-        新闻列表
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4">
+          新闻列表
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                color="primary"
+              />
+            }
+            label="自动刷新"
+          />
+          <Tooltip title={newDataCount > 0 ? `有 ${newDataCount} 条新数据` : '手动刷新'}>
+            <Badge badgeContent={newDataCount} color="error">
+              <Button
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={handleManualRefresh}
+                disabled={isLoading}
+              >
+                刷新
+              </Button>
+            </Badge>
+          </Tooltip>
+        </Box>
+      </Box>
 
       {/* 日期过滤条 */}
       <Box sx={{ mb: 2 }}>

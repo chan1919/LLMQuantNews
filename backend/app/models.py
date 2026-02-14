@@ -170,6 +170,8 @@ class UserConfig(Base):
             'keyword_positions': self.keyword_positions,
             'dimension_weights': self.dimension_weights,
             'impact_timeframe': self.impact_timeframe,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
 class CrawlerConfig(Base):
