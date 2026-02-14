@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     AZURE_API_BASE: Optional[str] = None
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    # V-API
+    VAPI_BASE_URL: Optional[str] = "https://api.vveai.com"
+    VAPI_API_KEY: Optional[str] = "sk-CERAboOBa75A0dWiB923721a3132469dAaDb44Ee38E52e09"
     
     # Feishu
     FEISHU_APP_ID: Optional[str] = None

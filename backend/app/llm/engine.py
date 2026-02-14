@@ -6,6 +6,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.models import LLMCost
+from app.llm.vapi_service import vapi_service
 
 class LLMEngine:
     """多模型LLM处理引擎 - 基于LiteLLM"""
@@ -23,6 +24,14 @@ class LLMEngine:
     def __init__(self):
         self.default_model = settings.DEFAULT_LLM_MODEL
         self._setup_api_keys()
+        self._setup_vapi()
+    
+    def _setup_vapi(self):
+        """配置V-API"""
+        if settings.VAPI_API_KEY:
+            # 设置LiteLLM的V-API配置
+            litellm.api_base = settings.VAPI_BASE_URL or "https://api.vveai.com"
+            litellm.api_key = settings.VAPI_API_KEY
     
     def _setup_api_keys(self):
         """配置API密钥"""
@@ -41,6 +50,28 @@ class LLMEngine:
                 'cost_per_1k_output': config['cost_per_1k_output'],
             }
             for model_id, config in self.AVAILABLE_MODELS.items()
+        ]
+    
+    async def get_vapi_models(self, refresh: bool = False) -> List[Dict[str, Any]]:
+        """
+        获取V-API支持的模型列表
+        
+        Args:
+            refresh: 是否刷新缓存
+            
+        Returns:
+            V-API模型列表
+        """
+        vapi_models = await vapi_service.get_chat_models(refresh)
+        return [
+            {
+                'id': model.get('id'),
+                'name': model.get('id'),
+                'provider': model.get('owned_by', 'vapi'),
+                'cost_per_1k_input': 0.0,  # V-API价格需要从API获取或配置
+                'cost_per_1k_output': 0.0,
+            }
+            for model in vapi_models
         ]
     
     async def process_news(
@@ -272,6 +303,96 @@ class LLMEngine:
             'input_tokens': response.usage.prompt_tokens,
             'output_tokens': response.usage.completion_tokens,
         }
+    
+    async def generate_tags(self, title: str, content: str, model: Optional[str] = None) -> Dict[str, Any]:
+        """生成新闻标签"""
+        model = model or self.default_model
+        if model not in self.AVAILABLE_MODELS:
+            model = self.default_model
+        
+        full_content = f"标题: {title}\n\n内容: {content[:3000]}"
+        
+        prompt = f"""请为以下新闻生成相关标签（5-15个），返回JSON格式，包含标签和相关性评分：
+
+{full_content}
+
+标签应该涵盖：
+1. 主题领域（如：科技、财经、AI等）
+2. 具体话题（如：人工智能、股票市场、政策等）
+3. 情感倾向（如：正面、负面、中性）
+4. 重要性级别（如：热点、突发、深度分析等）
+
+返回格式：{{"tags": {{"标签1": 相关度评分, "标签2": 相关度评分}}}}
+相关度评分范围：0-100"""
+        
+        response = await litellm.acompletion(
+            model=self.AVAILABLE_MODELS[model]['model'],
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=300,
+        )
+        
+        try:
+            result = json.loads(response.choices[0].message.content)
+            tags = result.get('tags', {})
+        except:
+            tags = {}
+        
+        return {
+            'tags': tags,
+            'input_tokens': response.usage.prompt_tokens,
+            'output_tokens': response.usage.completion_tokens,
+        }
+    
+    async def search_news(self, query: str, news_items: List[Dict[str, Any]], model: Optional[str] = None) -> List[Dict[str, Any]]:
+        """基于自然语言查询搜索新闻"""
+        model = model or self.default_model
+        if model not in self.AVAILABLE_MODELS:
+            model = self.default_model
+        
+        # 构建搜索提示
+        news_list = "\n\n".join([
+            f"新闻{idx+1}:\n标题: {item.get('title', '')}\n内容: {item.get('content', '')[:500]}"
+            for idx, item in enumerate(news_items[:20])  # 限制搜索范围
+        ])
+        
+        prompt = f"""请根据以下查询，对提供的新闻进行相关性排序，返回JSON格式：
+
+查询: {query}
+
+新闻列表:
+{news_list}
+
+返回格式：{{"results": [{{"index": 新闻索引, "relevance": 相关度评分, "reason": "相关原因"}}]}}
+相关度评分范围：0-100
+请按照相关度从高到低排序"""
+        
+        response = await litellm.acompletion(
+            model=self.AVAILABLE_MODELS[model]['model'],
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500,
+        )
+        
+        try:
+            result = json.loads(response.choices[0].message.content)
+            search_results = result.get('results', [])
+            
+            # 构建排序后的新闻列表
+            ranked_news = []
+            for item in search_results:
+                idx = item.get('index', 0)
+                if 0 <= idx < len(news_items):
+                    ranked_news.append({
+                        **news_items[idx],
+                        'search_relevance': item.get('relevance', 0),
+                        'search_reason': item.get('reason', ''),
+                    })
+            
+            return ranked_news
+        except Exception as e:
+            print(f"搜索失败: {e}")
+            return news_items
     
     def _accumulate_cost(self, total: Dict[str, Any], result: Dict[str, Any]):
         """累加成本"""
