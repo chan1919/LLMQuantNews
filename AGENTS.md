@@ -355,6 +355,93 @@ raise HTTPException(status_code=404, detail="Resource not found")
 
 ---
 
+## 架构设计原则
+
+### 高内聚低耦合
+
+**高内聚：**
+- 爬虫模块聚焦数据采集（`crawler/`）
+- 推送模块聚焦消息推送（`push/`）
+- 评分模块聚焦内容评分（`scoring/`）
+- LLM模块聚焦AI处理（`llm/`）
+- 各模块通过明确的接口交互，不直接操作其他模块的内部数据
+
+**低耦合：**
+- 使用依赖注入（FastAPI `Depends`）传递数据库会话
+- 使用事件/消息队列进行模块间通信（Celery）
+- 配置文件集中管理（`config.py`）
+- 避免跨模块直接导入具体实现，优先导入抽象接口
+
+### 爬虫开发规范
+
+**新增爬虫必须遵循：**
+
+1. **继承基类**
+```python
+from app.crawler.base import BaseNewsCrawler, NewsItem
+
+class MyCrawler(BaseNewsCrawler):
+    """自定义爬虫说明（中文）"""
+    
+    async def fetch(self) -> List[Dict[str, Any]]:
+        # 实现数据抓取
+        pass
+    
+    async def parse(self, raw_data: Dict[str, Any]) -> Optional[NewsItem]:
+        # 实现数据解析
+        pass
+```
+
+2. **注册到管理器**
+```python
+# app/crawler/manager.py
+CRAWLER_MAP = {
+    'my_crawler': MyCrawler,
+}
+```
+
+3. **信息源配置格式**
+```python
+{
+    "name": "信息源名称",
+    "crawler_type": "rss|web|api|custom",
+    "source_url": "https://example.com/feed",
+    "interval_seconds": 300,
+    "priority": 5,
+    "custom_config": {
+        # 爬虫特定配置
+    }
+}
+```
+
+### 测试模块架构
+
+**爬虫测试位置：**
+```
+backend/tests/
+├── __init__.py
+├── conftest.py              # pytest配置
+├── test_crawlers.py         # 爬虫单元测试
+└── test_sources.py          # 信息源连通性测试
+```
+
+**测试规范：**
+1. 每个爬虫类型必须有对应的测试类
+2. 测试必须覆盖：连通性、数据解析、异常处理
+3. 使用 `pytest-asyncio` 测试异步爬虫
+4. 网络测试使用 `pytest.mark.network` 标记
+
+**信息源健康检查：**
+```bash
+# 运行所有信息源测试
+python -m pytest tests/test_sources.py -v
+
+# 生成报告
+python backend/scripts/test_all_sources.py
+```
+
+---
+
 ## Notes for Agents
 
 - Write comments in Chinese for business logic
@@ -363,3 +450,4 @@ raise HTTPException(status_code=404, detail="Resource not found")
 - Test changes with `docker-compose` when possible
 - Add type hints to all new functions
 - Follow existing file structure and naming
+- **项目收尾时使用相关skills：** 运行 `skill cleanup-project`、`skill crawler-testing`、`skill doc-update`

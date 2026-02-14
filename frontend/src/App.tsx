@@ -31,8 +31,9 @@ function App() {
         <Router>
           <Layout>
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/news" element={<NewsList />} />
+              <Route path="/" element={<FeedList />} />
+              <Route path="/news/:id" element={<NewsDetail />} />
+              <Route path="/history" element={<NewsList />} />
               <Route path="/config" element={<Config />} />
               <Route path="/costs" element={<Costs />} />
             </Routes>
