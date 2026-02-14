@@ -1,18 +1,5 @@
 <div align="center">
-  <svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- 背景 -->
-    <rect width="200" height="200" rx="20" fill="#f0f4f8"/>
-    <!-- 地球/新闻图标 -->
-    <circle cx="100" cy="100" r="60" fill="#3b82f6" fill-opacity="0.8"/>
-    <circle cx="100" cy="100" r="40" fill="white" fill-opacity="0.9"/>
-    <!-- 新闻纸张 -->
-    <path d="M70 80 L130 80 L135 120 L65 120 Z" fill="#ffffff" stroke="#333333" stroke-width="2"/>
-    <path d="M80 90 L120 90" stroke="#333333" stroke-width="1.5"/>
-    <path d="M80 100 L115 100" stroke="#333333" stroke-width="1.5"/>
-    <!-- AI 图标 -->
-    <circle cx="100" cy="70" r="12" fill="#10b981"/>
-    <path d="M94 70 L106 70 M100 64 L100 76" stroke="white" stroke-width="2" stroke-linecap="round"/>
-  </svg>
+  <img src="./logo.svg" alt="LLMQuant News Logo" width="200" height="200" />
   
   # LLMQuant News - AI新闻量化分析平台
   
@@ -140,5 +127,5 @@ llmquant-news/
 
 如有问题，请通过以下方式联系我们：
 
-- 邮箱: contact@llmquant.news
+- 邮箱: suoni1919@gmail.com
 - GitHub: [LLMQuant News](https://github.com/llmquant/news)
