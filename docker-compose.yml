@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: llmquant-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/llmquant.db
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./crawler_scripts:/app/crawler_scripts
+    depends_on:
+      - redis
+    networks:
+      - llmquant-network
+
+  frontend:
+    build: ./frontend
+    container_name: llmquant-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - llmquant-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: llmquant-redis
+    volumes:
+      - redis-data:/data
+    networks:
+      - llmquant-network
+
+  celery-worker:
+    build: ./backend
+    container_name: llmquant-celery
+    command: celery -A app.services.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/llmquant.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./crawler_scripts:/app/crawler_scripts
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - llmquant-network
+
+  celery-beat:
+    build: ./backend
+    container_name: llmquant-beat
+    command: celery -A app.services.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./data/llmquant.db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - llmquant-network
+
+volumes:
+  redis-data:
+
+networks:
+  llmquant-network:
+    driver: bridge
