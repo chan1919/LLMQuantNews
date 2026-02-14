@@ -754,8 +754,8 @@ export default function FeedList() {
         ))}
       </Box>
 
-      {/* 加载更多指示器 */}
-      {isFetching && (
+      {/* 隐藏加载更多指示器，实现无感刷新 */}
+      {/* {isFetching && (
         <Box sx={{ mt: 2 }}>
           <LinearProgress />
         </Box>
