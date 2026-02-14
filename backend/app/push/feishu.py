@@ -1,5 +1,4 @@
-import lark
-from lark import Lark
+import aiohttp
 from datetime import datetime
 from typing import Dict, Any
 
@@ -15,14 +14,25 @@ class FeishuPusher(BasePusher):
         self.app_secret = config.get('app_secret') or settings.FEISHU_APP_SECRET
         self.webhook = config.get('webhook')
         self.chat_id = config.get('chat_id')
-        self._client = None
     
-    def _get_client(self):
-        """获取或创建飞书客户端"""
-        if not self._client and self.app_id and self.app_secret:
-            self._client = Lark(
-                app_id=self.app_id,
-                app_secret=self.app_secret
+    async def push(self, news_item: Dict[str, Any]) -> PushResult:
+        """推送新闻到飞书"""
+        try:
+            if self.webhook:
+                # 使用Webhook方式
+                return await self._push_by_webhook(news_item)
+            else:
+                return PushResult(
+                    success=False,
+                    channel='feishu',
+                    error_message='未配置飞书推送参数'
+                )
+        except Exception as e:
+            return PushResult(
+                success=False,
+                channel='feishu',
+                error_message=str(e),
+                timestamp=datetime.now().isoformat()
             )
         return self._client
     

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here-change-in-production"
     
     # Database
-    DATABASE_URL: str = "sqlite:///./data/llmquant.db"
+    DATABASE_URL: str = "sqlite:///../data/llmquant.db"
     REDIS_URL: str = "redis://localhost:6379/0"
     
     # AI API Keys

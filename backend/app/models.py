@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, JSON, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
-from database import Base
+from app.database import Base
 from datetime import datetime
 import json
 
@@ -32,6 +32,20 @@ class News(Base):
     # 量化评分
     rule_score = Column(Float, default=0.0)  # 规则评分
     final_score = Column(Float, default=0.0)  # 最终综合评分
+    
+    # 多空影响分析
+    position_bias = Column(String(20))  # bullish/bearish/neutral
+    position_magnitude = Column(Float, default=0.0)  # 多空幅度 0-100%
+    
+    # 影响维度评分
+    market_impact_score = Column(Float, default=0.0)  # 市场影响 0-100
+    industry_impact_score = Column(Float, default=0.0)  # 行业影响 0-100
+    policy_impact_score = Column(Float, default=0.0)  # 政策影响 0-100
+    tech_impact_score = Column(Float, default=0.0)  # 技术影响 0-100
+    
+    # 影响分析
+    impact_analysis = Column(JSON, default=dict)  # 详细影响分析JSON
+    brief_impact = Column(String(500))  # 一句话简短影响
     
     # LLM处理元数据
     llm_model_used = Column(String(100))  # 使用的AI模型
@@ -68,6 +82,14 @@ class News(Base):
             'categories': self.categories,
             'sentiment': self.sentiment,
             'final_score': self.final_score,
+            'position_bias': self.position_bias,
+            'position_magnitude': self.position_magnitude,
+            'market_impact_score': self.market_impact_score,
+            'industry_impact_score': self.industry_impact_score,
+            'policy_impact_score': self.policy_impact_score,
+            'tech_impact_score': self.tech_impact_score,
+            'impact_analysis': self.impact_analysis,
+            'brief_impact': self.brief_impact,
             'is_pushed': self.is_pushed,
             'llm_model_used': self.llm_model_used,
         }
@@ -114,6 +136,18 @@ class UserConfig(Base):
     # 邮件配置
     email_recipients = Column(JSON, default=list)
     
+    # 多空敏感度配置
+    position_sensitivity = Column(Float, default=1.0)  # 1.0=正常, 0.5=低敏感, 2.0=高敏感
+    
+    # 关键词多空配置 {"keyword": {"bias": "bullish", "magnitude": 0.8}}
+    keyword_positions = Column(JSON, default=dict)
+    
+    # 影响维度权重
+    dimension_weights = Column(JSON, default=dict)
+    
+    # 影响时间范围偏好
+    impact_timeframe = Column(String(20), default="medium")  # short/medium/long
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -132,6 +166,10 @@ class UserConfig(Base):
             'push_enabled': self.push_enabled,
             'push_channels': self.push_channels,
             'email_recipients': self.email_recipients,
+            'position_sensitivity': self.position_sensitivity,
+            'keyword_positions': self.keyword_positions,
+            'dimension_weights': self.dimension_weights,
+            'impact_timeframe': self.impact_timeframe,
         }
 
 class CrawlerConfig(Base):

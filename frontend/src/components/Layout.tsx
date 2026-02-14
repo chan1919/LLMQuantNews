@@ -15,8 +15,8 @@ import {
 } from '@mui/material'
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  Article as ArticleIcon,
+  DynamicFeed as FeedIcon,
+  History as HistoryIcon,
   Settings as SettingsIcon,
   AttachMoney as MoneyIcon,
 } from '@mui/icons-material'
@@ -25,8 +25,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 const drawerWidth = 240
 
 const menuItems = [
-  { text: '仪表盘', icon: <DashboardIcon />, path: '/' },
-  { text: '新闻列表', icon: <ArticleIcon />, path: '/news' },
+  { text: '信息流', icon: <FeedIcon />, path: '/' },
+  { text: '历史记录', icon: <HistoryIcon />, path: '/history' },
   { text: '配置管理', icon: <SettingsIcon />, path: '/config' },
   { text: '成本统计', icon: <MoneyIcon />, path: '/costs' },
 ]
