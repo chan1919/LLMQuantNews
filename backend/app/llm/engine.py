@@ -29,14 +29,19 @@ class LLMEngine:
     def _setup_vapi(self):
         """配置V-API"""
         if settings.VAPI_API_KEY:
+            # 保存原始的API配置
+            self.original_api_base = getattr(litellm, 'api_base', None)
+            self.original_api_key = getattr(litellm, 'api_key', None)
             # 设置LiteLLM的V-API配置
             litellm.api_base = f"{settings.VAPI_BASE_URL or 'https://api.vveai.com'}/v1"
             litellm.api_key = settings.VAPI_API_KEY
-    
+            print(f"✅ V-API配置成功: {litellm.api_base}")
+
     def _setup_api_keys(self):
         """配置API密钥"""
         if settings.OPENAI_API_KEY:
             litellm.api_key = settings.OPENAI_API_KEY
+            print(f"✅ OpenAI API密钥配置成功")
         # 其他密钥通过环境变量或litellm自动读取
     
     def get_available_models(self) -> List[Dict[str, Any]]:
@@ -160,9 +165,12 @@ class LLMEngine:
 
 请直接返回摘要内容，不要添加任何其他文字。"""
         
+        print(f"使用模型: gpt-4o-mini")
+        print(f"API Base: {litellm.api_base}")
+        
         # 使用V-API模型
         response = await litellm.acompletion(
-            model="openai/gpt-4o-mini",  # 使用完整的模型路径
+            model="gpt-4o-mini",  # 使用V-API配置的模型
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=200,
@@ -184,9 +192,12 @@ class LLMEngine:
 
 返回格式：{{"categories": ["分类1", "分类2"]}}"""
         
+        print(f"使用模型: gpt-4o-mini")
+        print(f"API Base: {litellm.api_base}")
+        
         # 使用V-API模型
         response = await litellm.acompletion(
-            model="openai/gpt-4o-mini",  # 使用完整的模型路径
+            model="gpt-4o-mini",  # 使用V-API配置的模型
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=100,
@@ -223,9 +234,12 @@ class LLMEngine:
     "urgency": 75
 }}"""
         
+        print(f"使用模型: gpt-4o-mini")
+        print(f"API Base: {litellm.api_base}")
+        
         # 使用V-API模型
         response = await litellm.acompletion(
-            model="openai/gpt-4o-mini",  # 使用完整的模型路径
+            model="gpt-4o-mini",  # 使用V-API配置的模型
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=150,
@@ -261,9 +275,12 @@ class LLMEngine:
 
 返回格式：{{"keywords": ["关键词1", "关键词2", ...]}}"""
         
+        print(f"使用模型: gpt-4o-mini")
+        print(f"API Base: {litellm.api_base}")
+        
         # 使用V-API模型
         response = await litellm.acompletion(
-            model="openai/gpt-4o-mini",  # 使用完整的模型路径
+            model="gpt-4o-mini",  # 使用V-API配置的模型
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=100,
@@ -289,9 +306,12 @@ class LLMEngine:
 
 返回格式：{{"sentiment": "positive/negative/neutral"}}"""
         
+        print(f"使用模型: gpt-4o-mini")
+        print(f"API Base: {litellm.api_base}")
+        
         # 使用V-API模型
         response = await litellm.acompletion(
-            model="openai/gpt-4o-mini",  # 使用完整的模型路径
+            model="gpt-4o-mini",  # 使用V-API配置的模型
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=50,

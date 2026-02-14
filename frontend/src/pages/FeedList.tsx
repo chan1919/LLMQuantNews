@@ -699,6 +699,15 @@ export default function FeedList() {
                     sx={{ fontWeight: 'medium' }}
                   />
 
+                  {/* AI评分 */}
+                  <Chip
+                    label={`AI: ${news.ai_score.toFixed(1)}`}
+                    color="primary"
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontWeight: 'medium' }}
+                  />
+
                   {/* 多空标签 */}
                   <Chip
                     icon={getBiasIcon(news.position_bias)}
@@ -714,11 +723,80 @@ export default function FeedList() {
                     }}
                   />
 
+                  {/* 情感标签 */}
+                  <Chip
+                    label={news.sentiment === 'positive' ? '积极' : 
+                           news.sentiment === 'negative' ? '消极' : '中性'}
+                    size="small"
+                    sx={{
+                      bgcolor: news.sentiment === 'positive' ? '#22c55e20' : 
+                               news.sentiment === 'negative' ? '#ef444420' : '#6b728020',
+                      color: news.sentiment === 'positive' ? '#22c55e' : 
+                             news.sentiment === 'negative' ? '#ef4444' : '#6b7280',
+                      fontWeight: 'medium',
+                    }}
+                  />
+
+                  {/* 分析状态 */}
+                  <Chip
+                    label={news.is_analyzed ? '已分析' : '未分析'}
+                    size="small"
+                    sx={{
+                      bgcolor: news.is_analyzed ? '#10b98120' : '#f59e0b20',
+                      color: news.is_analyzed ? '#10b981' : '#f59e0b',
+                      fontWeight: 'medium',
+                    }}
+                  />
+
                   {/* 时间 */}
                   <Typography variant="caption" color="text.secondary">
                     {news.time_ago}
                   </Typography>
                 </Box>
+
+                {/* AI分析指标 */}
+                {news.is_analyzed && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                      mb: 1.5,
+                    }}
+                  >
+                    {/* 市场影响度 */}
+                    <Chip
+                      label={`市场: ${news.market_impact.toFixed(0)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+
+                    {/* 行业相关性 */}
+                    <Chip
+                      label={`行业: ${news.industry_relevance.toFixed(0)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+
+                    {/* 信息新颖度 */}
+                    <Chip
+                      label={`新颖: ${news.novelty_score.toFixed(0)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+
+                    {/* 紧急程度 */}
+                    <Chip
+                      label={`紧急: ${news.urgency.toFixed(0)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
+                  </Box>
+                )}
 
                 {/* 简短影响描述 */}
                 <Typography

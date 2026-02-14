@@ -20,6 +20,15 @@ export interface NewsFeedItem {
   time_ago: string;
   keywords: string[];
   categories: string[];
+  // AI分析数据
+  ai_score: number;
+  market_impact: number;
+  industry_relevance: number;
+  novelty_score: number;
+  urgency: number;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  is_analyzed: boolean;
+  analyzed_at?: string;
 }
 
 export interface ImpactDimension {

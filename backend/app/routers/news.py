@@ -164,7 +164,16 @@ async def get_news_feed(
             "crawled_at": news.crawled_at,
             "time_ago": time_ago,
             "keywords": news.keywords or [],
-            "categories": news.categories or []
+            "categories": news.categories or [],
+            # 添加AI分析数据
+            "ai_score": news.ai_score or 0,
+            "market_impact": news.market_impact or 0,
+            "industry_relevance": news.industry_relevance or 0,
+            "novelty_score": news.novelty_score or 0,
+            "urgency": news.urgency or 0,
+            "sentiment": news.sentiment or "neutral",
+            "is_analyzed": news.is_analyzed or False,
+            "analyzed_at": news.analyzed_at
         })
     
     # 按衰减后评分排序

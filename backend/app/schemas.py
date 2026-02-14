@@ -199,6 +199,15 @@ class NewsFeedItem(BaseModel):
     time_ago: str  # "3小时前"
     keywords: List[str]
     categories: List[str]
+    # AI分析数据
+    ai_score: float = Field(default=0.0)
+    market_impact: float = Field(default=0.0)
+    industry_relevance: float = Field(default=0.0)
+    novelty_score: float = Field(default=0.0)
+    urgency: float = Field(default=0.0)
+    sentiment: Optional[Sentiment] = None
+    is_analyzed: bool = Field(default=False)
+    analyzed_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
