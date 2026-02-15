@@ -82,7 +82,7 @@ export default function Layout({ children }: LayoutProps) {
         return
       }
       
-      socket = new WebSocket('ws://localhost:3000/ws')
+      socket = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`)
       
       // 连接打开时
       socket.onopen = () => {

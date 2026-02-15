@@ -89,6 +89,14 @@ class NewsService:
                     db_news.novelty_score = scores.get('novelty_score', 50)
                     db_news.urgency = scores.get('urgency', 50)
                 
+                # 更新多空分析
+                if 'position_bias' in ai_result:
+                    db_news.position_bias = ai_result['position_bias']
+                if 'position_magnitude' in ai_result:
+                    db_news.position_magnitude = ai_result['position_magnitude']
+                if 'brief_impact' in ai_result:
+                    db_news.brief_impact = ai_result['brief_impact']
+                
                 # 更新分析状态
                 db_news.is_analyzed = True
                 db_news.analyzed_at = datetime.utcnow()
@@ -290,6 +298,16 @@ class NewsService:
                 news.categories = analysis_result.get('categories', [])
                 news.ai_score = analysis_result.get('importance', 50)
                 news.final_score = analysis_result.get('importance', 50)
+                
+                # 更新多空分析
+                news.position_bias = analysis_result.get('position_bias', 'neutral')
+                news.position_magnitude = analysis_result.get('position_magnitude', 0)
+                
+                # 更新各维度评分
+                news.market_impact = analysis_result.get('market_impact', 50)
+                news.industry_relevance = analysis_result.get('industry_relevance', 50)
+                news.novelty_score = analysis_result.get('novelty_score', 50)
+                news.urgency = analysis_result.get('urgency', 50)
                 
                 # 标记为已分析
                 news.is_analyzed = True

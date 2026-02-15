@@ -693,15 +693,15 @@ export default function FeedList() {
                 >
                   {/* 衰减后评分 */}
                   <Chip
-                    label={`${news.decayed_score.toFixed(1)}分`}
-                    color={getScoreColor(news.decayed_score)}
+                    label={`${(news.decayed_score ?? 0).toFixed(1)}分`}
+                    color={getScoreColor(news.decayed_score ?? 0)}
                     size="small"
                     sx={{ fontWeight: 'medium' }}
                   />
 
                   {/* AI评分 */}
                   <Chip
-                    label={`AI: ${news.ai_score.toFixed(1)}`}
+                    label={`AI: ${(news.ai_score ?? 0).toFixed(1)}`}
                     color="primary"
                     size="small"
                     variant="outlined"
@@ -710,29 +710,29 @@ export default function FeedList() {
 
                   {/* 多空标签 */}
                   <Chip
-                    icon={getBiasIcon(news.position_bias)}
-                    label={`${getBiasText(news.position_bias)} ${news.position_magnitude.toFixed(0)}%`}
+                    icon={getBiasIcon(news.position_bias ?? 'neutral')}
+                    label={`${getBiasText(news.position_bias ?? 'neutral')} ${(news.position_magnitude ?? 0).toFixed(0)}%`}
                     size="small"
                     sx={{
-                      bgcolor: `${getBiasColor(news.position_bias)}20`,
-                      color: getBiasColor(news.position_bias),
+                      bgcolor: `${getBiasColor(news.position_bias ?? 'neutral')}20`,
+                      color: getBiasColor(news.position_bias ?? 'neutral'),
                       fontWeight: 'medium',
                       '& .MuiChip-icon': {
-                        color: getBiasColor(news.position_bias),
+                        color: getBiasColor(news.position_bias ?? 'neutral'),
                       },
                     }}
                   />
 
                   {/* 情感标签 */}
                   <Chip
-                    label={news.sentiment === 'positive' ? '积极' : 
-                           news.sentiment === 'negative' ? '消极' : '中性'}
+                    label={(news.sentiment ?? 'neutral') === 'positive' ? '积极' : 
+                           (news.sentiment ?? 'neutral') === 'negative' ? '消极' : '中性'}
                     size="small"
                     sx={{
-                      bgcolor: news.sentiment === 'positive' ? '#22c55e20' : 
-                               news.sentiment === 'negative' ? '#ef444420' : '#6b728020',
-                      color: news.sentiment === 'positive' ? '#22c55e' : 
-                             news.sentiment === 'negative' ? '#ef4444' : '#6b7280',
+                      bgcolor: (news.sentiment ?? 'neutral') === 'positive' ? '#22c55e20' : 
+                               (news.sentiment ?? 'neutral') === 'negative' ? '#ef444420' : '#6b728020',
+                      color: (news.sentiment ?? 'neutral') === 'positive' ? '#22c55e' : 
+                             (news.sentiment ?? 'neutral') === 'negative' ? '#ef4444' : '#6b7280',
                       fontWeight: 'medium',
                     }}
                   />
@@ -766,7 +766,7 @@ export default function FeedList() {
                   >
                     {/* 市场影响度 */}
                     <Chip
-                      label={`市场: ${news.market_impact.toFixed(0)}`}
+                      label={`市场: ${(news.market_impact ?? 0).toFixed(0)}`}
                       size="small"
                       variant="outlined"
                       sx={{ fontSize: '0.75rem' }}
@@ -774,7 +774,7 @@ export default function FeedList() {
 
                     {/* 行业相关性 */}
                     <Chip
-                      label={`行业: ${news.industry_relevance.toFixed(0)}`}
+                      label={`行业: ${(news.industry_relevance ?? 0).toFixed(0)}`}
                       size="small"
                       variant="outlined"
                       sx={{ fontSize: '0.75rem' }}
@@ -782,7 +782,7 @@ export default function FeedList() {
 
                     {/* 信息新颖度 */}
                     <Chip
-                      label={`新颖: ${news.novelty_score.toFixed(0)}`}
+                      label={`新颖: ${(news.novelty_score ?? 0).toFixed(0)}`}
                       size="small"
                       variant="outlined"
                       sx={{ fontSize: '0.75rem' }}
@@ -790,7 +790,7 @@ export default function FeedList() {
 
                     {/* 紧急程度 */}
                     <Chip
-                      label={`紧急: ${news.urgency.toFixed(0)}`}
+                      label={`紧急: ${(news.urgency ?? 0).toFixed(0)}`}
                       size="small"
                       variant="outlined"
                       sx={{ fontSize: '0.75rem' }}
@@ -803,7 +803,7 @@ export default function FeedList() {
                   variant="body2"
                   sx={{
                     fontStyle: 'italic',
-                    color: getBiasColor(news.position_bias),
+                    color: getBiasColor(news.position_bias ?? 'neutral'),
                     mb: 1.5,
                     lineHeight: 1.5,
                   }}
