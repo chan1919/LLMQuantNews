@@ -1,15 +1,13 @@
-# 更新为真正的财经RSS源
+# 更新为可靠的财经RSS源
 from app.database import SessionLocal
 from app.models import CrawlerConfig
 
-# 真正的财经RSS源
+# 可靠的财经RSS源
 real_configs = [
-    {"name": "华尔街见闻-主要", "source_url": "https://wallstreetcn.com/newsroom/global-rss", "crawler_type": "rss"},
-    {"name": "新浪财经-股市", "source_url": "https://finance.sina.com.cn/roll/index_roll.shtml#pagevar", "crawler_type": "web"},
-    {"name": "网易财经", "source_url": "https://money.163.com/", "crawler_type": "web"},
-    {"name": "凤凰网财经", "source_url": "https://finance.ifeng.com/", "crawler_type": "web"},
-    {"name": "东方财富网", "source_url": "https://www.eastmoney.com/", "crawler_type": "web"},
-    {"name": "同花顺财经", "source_url": "https://www.10jqka.com.cn/", "crawler_type": "web"},
+    {"name": "华尔街见闻", "source_url": "https://wallstreetcn.com/newsroom/global-rss", "crawler_type": "rss"},
+    {"name": "证券时报网", "source_url": "https://www.stcn.com/news/rss/news.xml", "crawler_type": "rss"},
+    {"name": "中国证券报", "source_url": "https://www.cs.com.cn/sszg/xwzx/03/04/rss.xml", "crawler_type": "rss"},
+    {"name": "第一财经", "source_url": "https://www.yicai.com/news/rss/news.xml", "crawler_type": "rss"},
 ]
 
 db = SessionLocal()
@@ -32,4 +30,4 @@ for config in real_configs:
 db.commit()
 db.close()
 
-print("\n已更新为真正的财经RSS源！")
+print("\n已更新为可靠的财经RSS源！")
