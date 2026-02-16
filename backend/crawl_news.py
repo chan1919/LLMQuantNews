@@ -12,6 +12,12 @@ async def crawl_news():
     print(f"找到 {len(configs)} 个活跃爬虫配置")
     
     total_news = 0
+    all_urls = set()  # 用于跨源去重
+    
+    # 先获取所有已存在的URL
+    existing_urls = {row[0] for row in db.query(News.url).all() if row[0]}
+    all_urls.update(existing_urls)
+    print(f"数据库中已有 {len(existing_urls)} 条新闻")
     
     for config in configs:
         print(f"\n正在爬取: {config.name}")
@@ -27,6 +33,7 @@ async def crawl_news():
             news_items = await crawler.crawl()
             print(f"  爬取到 {len(news_items)} 条新闻")
             
+            added_count = 0
             # 保存到数据库
             for item in news_items:
                 # 处理NewsItem对象或字典
@@ -46,11 +53,9 @@ async def crawl_news():
                 if not title:
                     continue
                 
-                # 检查是否已存在
-                if url:
-                    existing = db.query(News).filter(News.url == url).first()
-                    if existing:
-                        continue
+                # 去重检查
+                if url and url in all_urls:
+                    continue
                 
                 news = News(
                     title=title,
@@ -64,13 +69,17 @@ async def crawl_news():
                     is_pushed=False,
                 )
                 db.add(news)
+                if url:
+                    all_urls.add(url)
+                added_count += 1
                 total_news += 1
             
             db.commit()
-            print(f"  新增 {total_news} 条新闻")
+            print(f"  新增 {added_count} 条新闻")
             
         except Exception as e:
             print(f"  爬取失败: {e}")
+            db.rollback()  # 回滚当前批次
             import traceback
             traceback.print_exc()
     
