@@ -10,6 +10,7 @@ from app.schemas import (
     FeedListResponse, NewsDetail, DashboardStats
 )
 from app.services.news_service import NewsService
+from app.services.news_filter import news_filter_service
 from app.scoring.engine import (
     calculate_decayed_score, calculate_position_bias, 
     generate_impact_analysis, get_time_ago, generate_brief_impact
@@ -94,98 +95,45 @@ async def list_news(
 async def get_news_feed(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    keywords: Optional[List[str]] = Query(None, description="关键词列表"),
-    categories: Optional[List[str]] = Query(None, description="分类列表"),
-    sources: Optional[List[str]] = Query(None, description="来源列表"),
-    minScore: Optional[float] = Query(None, ge=0, le=100, description="最低评分"),
-    maxScore: Optional[float] = Query(None, ge=0, le=100, description="最高评分"),
+    mode: str = Query("important", description="筛选模式: all/important/high_impact/unread"),
+    min_score: Optional[float] = Query(None, ge=0, le=100, description="最低评分"),
+    position_filter: Optional[str] = Query(None, description="多空筛选: bullish/bearish/neutral"),
+    show_excluded: bool = Query(False, description="是否显示被排除的新闻"),
     db: Session = Depends(get_db)
 ):
-    """获取信息流列表（按时间衰减排序）"""
-    # 获取用户配置（使用默认配置）
+    """
+    获取个性化信息流列表
+    
+    - mode=all: 显示所有新闻
+    - mode=important: 只显示重要新闻（高于阈值）
+    - mode=high_impact: 只显示高影响新闻
+    - mode=unread: 只显示未读新闻（待实现）
+    """
+    # 获取用户配置
     user_config = db.query(UserConfig).filter(UserConfig.user_id == "default").first()
     if not user_config:
         user_config = UserConfig()
     
-    # 构建查询
-    query = db.query(News)
+    # 使用新的筛选服务
+    feed_items = news_filter_service.get_feed_items(
+        db=db,
+        user_config=user_config,
+        mode=mode,
+        limit=limit,
+        offset=offset
+    )
     
-    # 应用筛选条件
-    if keywords:
-        for keyword in keywords:
-            query = query.filter(News.title.ilike(f"%{keyword}%") | News.content.ilike(f"%{keyword}%"))
-    if categories:
-        for category in categories:
-            query = query.filter(News.categories.contains([category]))
-    if sources:
-        query = query.filter(News.source.in_(sources))
-    if minScore is not None:
-        query = query.filter(News.final_score >= minScore)
-    if maxScore is not None:
-        query = query.filter(News.final_score <= maxScore)
+    # 计算总数（近似值）
+    total_query = db.query(News)
+    if user_config.blocked_sources:
+        from sqlalchemy import not_
+        total_query = total_query.filter(not_(News.source.in_(user_config.blocked_sources)))
+    total = total_query.count()
     
-    # 获取新闻列表
-    news_list = query.order_by(News.crawled_at.desc()).limit(200).all()
-    
-    # 计算时间衰减评分并排序
-    feed_items = []
-    for news in news_list:
-        decayed_score = calculate_decayed_score(
-            news.final_score or 0, 
-            news.crawled_at
-        )
-        
-        # 获取时间描述
-        time_ago = get_time_ago(news.crawled_at)
-        
-        # 准备简短摘要（从前200字符）
-        brief_summary = ""
-        if news.summary:
-            brief_summary = news.summary[:200]
-        elif news.content:
-            brief_summary = news.content[:200]
-        
-        # 准备简短影响
-        brief_impact = news.brief_impact or "暂无影响分析"
-        brief_impact = brief_impact[:100]
-        
-        feed_items.append({
-            "id": news.id,
-            "title": news.title,
-            "brief_summary": brief_summary,
-            "brief_impact": brief_impact,
-            "position_bias": news.position_bias or "neutral",
-            "position_magnitude": news.position_magnitude or 0,
-            "decayed_score": decayed_score,
-            "final_score": news.final_score or 0,
-            "source": news.source or "未知来源",
-            "source_url": news.url or "",
-            "published_at": news.published_at or news.crawled_at,
-            "crawled_at": news.crawled_at,
-            "time_ago": time_ago,
-            "keywords": news.keywords or [],
-            "categories": news.categories or [],
-            # 添加AI分析数据
-            "ai_score": news.ai_score or 0,
-            "market_impact": news.market_impact or 0,
-            "industry_relevance": news.industry_relevance or 0,
-            "novelty_score": news.novelty_score or 0,
-            "urgency": news.urgency or 0,
-            "sentiment": news.sentiment or "neutral",
-            "is_analyzed": news.is_analyzed or False,
-            "analyzed_at": news.analyzed_at
-        })
-    
-    # 按衰减后评分排序
-    feed_items.sort(key=lambda x: x["decayed_score"], reverse=True)
-    
-    # 分页
-    total = len(feed_items)
-    paginated_items = feed_items[offset:offset + limit]
     has_more = (offset + limit) < total
     
     return {
-        "items": paginated_items,
+        "items": feed_items,
         "total": total,
         "has_more": has_more
     }
@@ -343,5 +291,9 @@ async def get_news_detail(
         "keywords": news.keywords or [],
         "categories": news.categories or [],
         "summary": news.summary,
-        "sentiment": news.sentiment
+        "sentiment": news.sentiment,
+        # 新增字段
+        "causal_chain": news.causal_chain,
+        "position_analysis": news.position_analysis,
+        "related_news": []  # TODO: 实现相关新闻查找
     }

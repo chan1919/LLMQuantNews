@@ -47,6 +47,34 @@ class News(Base):
     impact_analysis = Column(JSON, default=dict)  # 详细影响分析JSON
     brief_impact = Column(String(500))  # 一句话简短影响
     
+    # 新增：因果逻辑链分析
+    causal_chain = Column(JSON, default=dict)  # 因果逻辑链
+    # {
+    #   "events": [{"type": "trigger", "entity": "...", "action": "...", "time": "...", "confidence": 0.9}],
+    #   "logic_graph": {...},
+    #   "root_cause": "...",
+    #   "immediate_effects": [...],
+    #   "long_term_implications": [...]
+    # }
+    
+    # 新增：详细多空分析
+    position_analysis = Column(JSON, default=dict)  # 详细多空分析
+    # {
+    #   "overall": {"bias": "bullish", "magnitude": 65, "confidence": 0.82},
+    #   "by_sector": [{"sector": "银行", "bias": "bearish", "magnitude": 70}],
+    #   "by_asset": [{"asset": "人民币", "bias": "bearish", "magnitude": 60}],
+    #   "time_horizon": {
+    #     "short_term": {"bias": "bearish", "magnitude": 75, "duration": "1-3天"},
+    #     "medium_term": {"bias": "bearish", "magnitude": 60, "duration": "1-4周"},
+    #     "long_term": {"bias": "neutral", "magnitude": 40, "duration": "1-6月"}
+    #   },
+    #   "key_drivers": [{"factor": "政策收紧", "impact": -30, "probability": 0.8}],
+    #   "trading_signals": [{"action": "减持", "target": "银行板块", "urgency": "medium"}]
+    # }
+    
+    # 新增：相关新闻
+    related_news_ids = Column(JSON, default=list)  # 相关新闻ID列表
+    
     # LLM处理元数据
     llm_model_used = Column(String(100))  # 使用的AI模型
     processing_time_ms = Column(Integer)  # 处理耗时
@@ -101,6 +129,10 @@ class News(Base):
             'is_analyzed': self.is_analyzed,
             'analyzed_at': self.analyzed_at.isoformat() if self.analyzed_at else None,
             'analysis_type': self.analysis_type,
+            # 新增字段
+            'causal_chain': self.causal_chain,
+            'position_analysis': self.position_analysis,
+            'related_news_ids': self.related_news_ids,
         }
 
 class UserConfig(Base):
@@ -157,6 +189,17 @@ class UserConfig(Base):
     # 影响时间范围偏好
     impact_timeframe = Column(String(20), default="medium")  # short/medium/long
     
+    # 新增：自然语言描述配置
+    user_description = Column(Text)  # 用户自然语言描述
+    ai_generated_keywords = Column(JSON, default=dict)  # AI生成的关键词及权重
+    ai_generated_filters = Column(JSON, default=dict)  # AI生成的过滤规则
+    ai_generated_sources = Column(JSON, default=list)  # AI推荐的源及权重
+    preferred_sources = Column(JSON, default=dict)  # 用户偏好的源权重 {source_name: weight}
+    blocked_sources = Column(JSON, default=list)  # 用户屏蔽的源列表
+    analysis_mode = Column(String(20), default="keywords")  # "keywords" | "description" | "hybrid"
+    last_config_analysis_at = Column(DateTime)  # 上次AI分析配置时间
+    pending_ai_config = Column(JSON, default=dict)  # 待应用的AI生成配置（需人工确认）
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -179,6 +222,16 @@ class UserConfig(Base):
             'keyword_positions': self.keyword_positions,
             'dimension_weights': self.dimension_weights,
             'impact_timeframe': self.impact_timeframe,
+            # 新增字段
+            'user_description': self.user_description,
+            'ai_generated_keywords': self.ai_generated_keywords,
+            'ai_generated_filters': self.ai_generated_filters,
+            'ai_generated_sources': self.ai_generated_sources,
+            'preferred_sources': self.preferred_sources,
+            'blocked_sources': self.blocked_sources,
+            'analysis_mode': self.analysis_mode,
+            'last_config_analysis_at': self.last_config_analysis_at.isoformat() if self.last_config_analysis_at else None,
+            'pending_ai_config': self.pending_ai_config,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

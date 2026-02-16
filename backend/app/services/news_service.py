@@ -377,6 +377,11 @@ class ConfigService:
         return config
     
     @staticmethod
+    def get_or_create_user_config(db: Session, user_id: str = "default") -> UserConfig:
+        """获取或创建用户配置（别名方法）"""
+        return ConfigService.get_user_config(db, user_id)
+    
+    @staticmethod
     def update_user_config(db: Session, user_id: str, config_data: Dict[str, Any]) -> UserConfig:
         """更新用户配置"""
         config = ConfigService.get_user_config(db, user_id)
