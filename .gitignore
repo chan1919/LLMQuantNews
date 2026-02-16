@@ -71,3 +71,11 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Process IDs
+.pids
+*.pid
+
+# Runtime logs
+backend.log
+frontend.log
