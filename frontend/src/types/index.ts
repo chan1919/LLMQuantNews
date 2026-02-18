@@ -103,4 +103,34 @@ export interface UserConfig {
     tech: number;
   };
   impact_timeframe: TimeFrame;
+  // 新增字段
+  user_description?: string;
+  ai_generated_keywords: Record<string, number>;
+  ai_generated_filters: Record<string, any>;
+  ai_generated_sources: string[];
+  preferred_sources: Record<string, number>;
+  blocked_sources: string[];
+  analysis_mode: 'keywords' | 'description' | 'hybrid';
+  pending_ai_config?: Record<string, any>;
+  last_config_analysis_at?: string;
+}
+
+export interface AIConfigAnalysis {
+  keywords: Record<string, number>;
+  industries: string[];
+  categories: string[];
+  excluded_keywords: string[];
+  recommended_sources: Record<string, number>;
+  position_sensitivity: number;
+  impact_timeframe: TimeFrame;
+  keyword_positions: Record<string, KeywordPosition>;
+  filters: Record<string, any>;
+  analysis_reasoning: string;
+}
+
+export interface PreferredSource {
+  name: string;
+  weight: number;
+  is_blocked: boolean;
+  is_ai_recommended: boolean;
 }
