@@ -1,0 +1,77 @@
+{
+  "total": 9,
+  "sources": [
+    {
+      "name": "中国新闻网-国内",
+      "crawler_type": "rss",
+      "source_url": "http://www.chinanews.com.cn/rss/scroll-news.xml",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "中国新闻网-国际",
+      "crawler_type": "rss",
+      "source_url": "http://www.chinanews.com.cn/rss/world.xml",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "中国新闻网-财经",
+      "crawler_type": "rss",
+      "source_url": "http://www.chinanews.com.cn/rss/finance.xml",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "东方财富网-股票资讯",
+      "crawler_type": "rss",
+      "source_url": "http://rss.eastmoney.com/rss_stock.xml",
+      "interval_seconds": 300,
+      "priority": 6,
+      "is_valid": true
+    },
+    {
+      "name": "36氪-最新资讯",
+      "crawler_type": "rss",
+      "source_url": "http://www.36kr.com/feed",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "虎嗅网-最新文章",
+      "crawler_type": "rss",
+      "source_url": "http://www.huxiu.com/rss/0.xml",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "爱范儿-最新文章",
+      "crawler_type": "rss",
+      "source_url": "http://www.ifanr.com/feed",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "BBC News-头条新闻",
+      "crawler_type": "rss",
+      "source_url": "http://feeds.bbci.co.uk/news/rss.xml",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    },
+    {
+      "name": "The Guardian-头条新闻",
+      "crawler_type": "rss",
+      "source_url": "https://www.theguardian.com/world/rss",
+      "interval_seconds": 300,
+      "priority": 5,
+      "is_valid": true
+    }
+  ]
+}

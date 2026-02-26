@@ -79,3 +79,6 @@ Thumbs.db
 # Runtime logs
 backend.log
 frontend.log
+
+# Windows
+nul
