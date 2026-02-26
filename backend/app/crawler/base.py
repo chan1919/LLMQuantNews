@@ -20,6 +20,7 @@ class NewsItem:
     source: str = ""
     author: Optional[str] = None
     published_at: Optional[datetime] = None
+    crawled_at: Optional[datetime] = None
     categories: List[str] = None
     tags: List[str] = None
     metadata: Dict[str, Any] = None
@@ -66,6 +67,7 @@ class BaseNewsCrawler(ABC):
         try:
             raw_items = await self.fetch()
             news_items = []
+            now = datetime.utcnow()
             
             for raw_data in raw_items:
                 try:
@@ -73,6 +75,9 @@ class BaseNewsCrawler(ABC):
                     if item and self._validate(item):
                         # 清洗数据
                         cleaned_item = self._clean_data(item)
+                        # 设置抓取时间
+                        if not cleaned_item.crawled_at:
+                            cleaned_item.crawled_at = now
                         news_items.append(cleaned_item)
                 except Exception as e:
                     print(f"解析失败: {e}")

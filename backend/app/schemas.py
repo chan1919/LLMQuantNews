@@ -187,7 +187,7 @@ class NewsFeedItem(BaseModel):
     id: int
     title: str
     brief_summary: str = Field(..., max_length=200)  # 简短摘要
-    brief_impact: str = Field(..., max_length=100)  # 一句话影响
+    brief_impact: str = Field(default="", max_length=100)  # 一句话影响
     position_bias: PositionBias
     position_magnitude: float = Field(..., ge=0, le=100)  # 多空幅度%
     decayed_score: float  # 时间衰减后评分

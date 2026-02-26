@@ -169,10 +169,11 @@ class NewsFilterService:
         # 4. 根据模式筛选
         if mode == "important":
             # 只显示重要新闻（高分）
-            query = query.filter(News.final_score >= threshold)
+            # 如果没有经过 AI 分析，不使用分数过滤
+            query = query.filter(or_(News.is_analyzed == False, News.final_score >= threshold))
         elif mode == "high_impact":
             # 高影响新闻
-            query = query.filter(News.market_impact >= 80)
+            query = query.filter(or_(News.is_analyzed == False, News.market_impact >= 80))
         
         # 5. 时间范围（默认最近7天）
         week_ago = datetime.utcnow() - timedelta(days=7)
