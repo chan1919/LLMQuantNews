@@ -30,8 +30,15 @@
     },
     "agent-usage-reminder": {
       "enabled": true
+    },
+    "git-commit-coauthor": {
+      "enabled": false
+    },
+    "git-commit-footer": {
+      "enabled": false
     }
   },
+  "disabled_hooks": ["git-commit-coauthor", "git-commit-footer"],
   "skills": {
     "enabled": true,
     "paths": [
