@@ -52,24 +52,24 @@
       "load_skills": ["git-master"]
     },
     "deep": {
-      "model": "volcengine-coding-plan/ark-code-latest",
+      "model": "aliyun-bailian/glm-5",
       "description": "复杂任务：架构设计、深度研究、性能优化"
     },
     "visual-engineering": {
-      "model": "volcengine-coding-plan/ark-code-latest",
+      "model": "aliyun-bailian/qwen3.5-plus",
       "description": "前端 UI/UX、组件开发、样式优化",
       "load_skills": ["playwright", "frontend-ui-ux"]
     },
     "crawler": {
-      "model": "volcengine-coding-plan/ark-code-latest",
+      "model": "aliyun-bailian/qwen3.5-plus",
       "description": "新闻爬虫开发与调试、信息源配置"
     },
     "llm": {
-      "model": "volcengine-coding-plan/ark-code-latest",
+      "model": "aliyun-bailian/glm-5",
       "description": "LLM 集成和 AI 功能开发、评分系统优化"
     },
     "writing": {
-      "model": "volcengine-coding-plan/ark-code-latest",
+      "model": "aliyun-bailian/kimi-k2.5",
       "description": "文档编写、注释更新、README 维护"
     }
   },
