@@ -1,0 +1,71 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/refs/heads/master/schemas/oh-my-opencode.json",
+  "agents": {
+    "planner-sisyphus": {
+      "enabled": true,
+      "replace_plan": true
+    },
+    "explore": {
+      "enabled": true
+    },
+    "oracle": {
+      "enabled": true
+    }
+  },
+  "disabled_mcps": [],
+  "experimental": {
+    "preemptive_compaction_threshold": 0.85,
+    "context_window_monitor_enabled": true
+  },
+  "hooks": {
+    "todo-continuation-enforcer": {
+      "enabled": true
+    },
+    "context-window-monitor": {
+      "enabled": true
+    },
+    "preemptive-compaction": {
+      "enabled": true,
+      "threshold": 0.85
+    },
+    "agent-usage-reminder": {
+      "enabled": true
+    }
+  },
+  "skills": {
+    "enabled": true,
+    "paths": [
+      "./skills"
+    ]
+  },
+  "category_defaults": {
+    "visual-engineering": {
+      "load_skills": ["playwright", "frontend-ui-ux"]
+    },
+    "quick": {
+      "load_skills": ["git-master"]
+    },
+    "deep": {
+      "load_skills": []
+    }
+  },
+  "project": {
+    "name": "LLMQuantNews",
+    "description": "AI 新闻量化分析平台 - 多渠道新闻采集、智能量化评分、多渠道推送",
+    "tech_stack": ["FastAPI", "React", "TypeScript", "Celery", "Redis", "LiteLLM"],
+    "language": "zh-CN",
+    "code_style": {
+      "python": {
+        "formatter": "black",
+        "line_length": 88,
+        "type_hints": "required",
+        "comments": "chinese"
+      },
+      "typescript": {
+        "component_naming": "PascalCase",
+        "function_naming": "camelCase",
+        "styling": "MUI sx prop"
+      }
+    }
+  }
+}
