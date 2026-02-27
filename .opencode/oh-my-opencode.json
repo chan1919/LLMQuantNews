@@ -38,6 +38,34 @@
       "./skills"
     ]
   },
+  "categories": {
+    "quick": {
+      "model": "opencode/gpt-5-nano",
+      "description": "简单任务：拼写修复、单文件修改、typo 修复",
+      "load_skills": ["git-master"]
+    },
+    "deep": {
+      "model": "anthropic/claude-opus-4-6",
+      "description": "复杂任务：架构设计、深度研究、性能优化"
+    },
+    "visual-engineering": {
+      "model": "google/gemini-3-pro",
+      "description": "前端 UI/UX、组件开发、样式优化",
+      "load_skills": ["playwright", "frontend-ui-ux"]
+    },
+    "crawler": {
+      "model": "openai/gpt-5.2",
+      "description": "新闻爬虫开发与调试、信息源配置"
+    },
+    "llm": {
+      "model": "anthropic/claude-sonnet-4-6",
+      "description": "LLM 集成和 AI 功能开发、评分系统优化"
+    },
+    "writing": {
+      "model": "kimi-for-coding/k2p5",
+      "description": "文档编写、注释更新、README 维护"
+    }
+  },
   "category_defaults": {
     "visual-engineering": {
       "load_skills": ["playwright", "frontend-ui-ux"]

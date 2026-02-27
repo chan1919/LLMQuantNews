@@ -450,4 +450,174 @@ python backend/scripts/test_all_sources.py
 - Test changes with `docker-compose` when possible
 - Add type hints to all new functions
 - Follow existing file structure and naming
-- **项目收尾时使用相关skills：** 运行 `skill cleanup-project`、`skill crawler-testing`、`skill doc-update`
+- **项目收尾时使用相关 skills：** 运行 `skill cleanup-project`、`skill crawler-testing`、`skill doc-update`
+
+---
+
+## Oh My OpenCode 集成
+
+### 配置文件
+
+项目已配置 Oh My OpenCode，配置文件位于：
+- `.opencode/oh-my-opencode.json` - 项目级配置
+
+### 可用 Skills
+
+项目提供 5 个专用 skills：
+
+| Skill | 用途 | 触发时机 |
+|-------|------|----------|
+| `cleanup-project` | 清理 Python 缓存、测试废物、日志文件 | 开发完成后 |
+| `crawler-testing` | 测试所有爬虫和信息源连通性 | 添加新信息源后 |
+| `doc-update` | 根据代码变更同步更新文档 | 功能开发完成后 |
+| `news-analysis` | 测试 AI 评分、情感分析、成本追踪 | AI 功能修改后 |
+| `api-testing` | 测试 REST API 端点完整性和性能 | API 开发完成后 |
+
+### 使用方法
+
+```bash
+# 在项目根目录运行 skills
+skill cleanup-project
+skill crawler-testing
+skill news-analysis
+skill api-testing
+skill doc-update
+```
+
+### Category + Skills 委派系统
+
+Oh My OpenCode 支持根据任务类型自动委派到最优模型：
+
+```typescript
+// 前端任务 - 使用视觉工程模型
+task(
+  category="visual-engineering",
+  load_skills=["playwright", "frontend-ui-ux"],
+  prompt="为 Dashboard 添加新的图表组件..."
+)
+
+// 快速修改 - 使用轻量模型
+task(
+  category="quick",
+  load_skills=["git-master"],
+  prompt="修复 news.ts 中的类型错误..."
+)
+
+// 复杂问题 - 使用深度推理模型
+task(
+  category="deep",
+  load_skills=[],
+  prompt="分析评分系统性能瓶颈并优化..."
+)
+```
+
+### MCP 集成
+
+项目启用了以下 MCPs：
+
+**grep.app** - GitHub 代码搜索
+- 查找真实世界的 FastAPI/React 最佳实践
+- 搜索爬虫实现模式
+- 发现 AI 评分系统设计
+
+**Context7** - 最新文档查询
+- 获取 LiteLLM 最新 API 文档
+- 查询 FastAPI/React 官方指南
+- 了解 MUI 组件用法
+
+### 工作流
+
+#### 1. 新功能开发
+```
+1. 使用 explore agent 研究现有代码模式
+2. 使用 librarian agent 查询相关文档
+3. 实现功能（遵循 AGENTS.md 规范）
+4. 运行 skill api-testing 验证 API
+5. 运行 skill doc-update 更新文档
+6. 运行 skill cleanup-project 清理
+```
+
+#### 2. 爬虫开发
+```
+1. 继承 BaseNewsCrawler 基类
+2. 实现 fetch() 和 parse() 方法
+3. 注册到 crawler/manager.py
+4. 配置信息源
+5. 运行 skill crawler-testing 验证
+6. 运行 skill doc-update 更新爬虫文档
+```
+
+#### 3. AI 模型调试
+```
+1. 修改 backend/.env 中的模型配置
+2. 运行 python backend/test_ai_config.py
+3. 运行 skill news-analysis 全面测试
+4. 检查成本报告
+5. 优化 prompt 或切换模型
+```
+
+### 最佳实践
+
+**代码质量**
+- 所有新函数必须添加类型提示
+- 业务逻辑注释使用中文
+- 生产环境使用 logging 不用 print
+- 遵循 Black 格式化（88 字符行宽）
+
+**测试覆盖**
+- 新增 API 端点必须添加测试
+- 修改爬虫必须运行连通性测试
+- AI 功能修改必须测试多模型兼容性
+
+**文档同步**
+- 功能开发完成后立即运行 `skill doc-update`
+- README 应能指导新用户完成部署
+- 所有公共 API 必须有文档说明
+
+**性能优化**
+- 使用 explore agent 查找性能瓶颈
+- 数据库查询添加索引
+- AI 调用添加缓存机制
+- 使用 Celery 处理耗时任务
+
+---
+
+## 快速参考
+
+### 常用命令
+```bash
+# 开发环境
+npm run dev                    # 前端开发服务器
+uvicorn app.main:app --reload  # 后端开发服务器
+
+# 测试
+pytest backend/tests/ -v       # 运行所有测试
+skill api-testing              # API 专项测试
+skill crawler-testing          # 爬虫专项测试
+
+# 部署
+docker-compose up -d           # 启动所有服务
+docker-compose logs -f         # 查看日志
+
+# 维护
+skill cleanup-project          # 清理项目
+skill doc-update               # 更新文档
+```
+
+### 项目结构速查
+```
+LLMQuantNews/
+├── .opencode/                 # Oh My OpenCode 配置
+├── skills/                    # 自定义 skills
+├── backend/app/
+│   ├── routers/               # API 端点
+│   ├── services/              # 业务逻辑
+│   ├── crawler/               # 新闻爬虫
+│   ├── scoring/               # 评分系统
+│   ├── llm/                   # AI 处理
+│   └── push/                  # 推送服务
+├── frontend/src/
+│   ├── pages/                 # 页面组件
+│   └── components/            # 通用组件
+└── data/                      # SQLite 数据库
+```
